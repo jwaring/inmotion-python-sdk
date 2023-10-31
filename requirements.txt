@@ -1,0 +1,4 @@
+requests~=2.31.0
+setuptools~=65.5.1
+python-dotenv==1.0.0
+pandas~=2.0.2
