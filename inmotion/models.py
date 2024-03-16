@@ -171,6 +171,9 @@ class AttributeDetails:
     multiple: bool
     value: any
 
+@dataclass(frozen=True)
+class LockStatus:
+    lockStatus: list[ActivitySummary]
 
 class ActivityDef:
     account: str
@@ -187,7 +190,6 @@ class ActivityDef:
     timezone: str
     sensors: list[SensorDef]
     attrs: dict[str, AttributeDetails]
-
 
 @dataclass(frozen=True)
 class SiteActivityDef(ActivityDef):
@@ -206,6 +208,22 @@ class SiteActivityDef(ActivityDef):
     attrs: dict[str, AttributeDetails]
     actType: str = 'S'
 
+@dataclass(frozen=True)
+class TrackActivityDef(ActivityDef):
+    account: str
+    name: str
+    comment: str
+    tags: list[str]
+    sourceIdentifier: str
+    sourceCategory: str
+    sourceName: str
+    acqConv: str
+    created: int
+    datum: str
+    timezone: str
+    sensors: list[SensorDef]
+    attrs: dict[str, AttributeDetails]
+    actType: str = 'T'
 
 @dataclass(frozen=True)
 class Sensor:
@@ -214,7 +232,6 @@ class Sensor:
     description: str
     units: str
 
-
 @dataclass(frozen=True)
 class ActivitySearchFilter:
     nameFilter: str
@@ -222,7 +239,6 @@ class ActivitySearchFilter:
     acType: str
     acqConvs: list[str]
     coordConv: list[str]
-
 
 @dataclass(frozen=True)
 class ActivitySummary:
@@ -238,9 +254,13 @@ class ActivitySummary:
     acqConv: str
     created: datetime
     timezone: str
+    lockStatus: Optional[LockStatus]
     start: datetime = Optional[datetime]
     end: datetime = Optional[datetime]
 
+@dataclass(frozen=True)
+class ActivitiesSummary:
+    activities: list[ActivitySummary]
 
 @dataclass(frozen=True)
 class ActivityShareInfo:
@@ -250,17 +270,37 @@ class ActivityShareInfo:
     authorised: datetime
     rules: Optional[str]
 
+@dataclass(frozen=True)
+class ActivityDetails:
+    key: str
+    activity: ActivityDef
+    lockStatus: Optional[LockStatus]
+    interval: Optional[Interval],
+    shareInfo: Optional[list[ActivityShareInfo]]
 
 @dataclass(frozen=True)
-class ActivitiesSummary:
-    activities: list[ActivitySummary]
+class TrackActivityDetails(ActivityDetails):
+    key: str
+    activity: ActivityDef
+    lockStatus: Optional[LockStatus]
+    interval: Optional[Interval],
+    shareInfo: Optional[list[ActivityShareInfo]]
+
+@dataclass(frozen=True)
+class SiteActivityDetails(ActivityDetails):
+    key: str
+    activity: ActivityDef
+    location: ActivityLocation
+    lockStatus: Optional[LockStatus]
+    interval: Optional[Interval],
+    shareInfo: Optional[list[ActivityShareInfo]]
+
 
 
 @dataclass(frozen=True)
 class DataFilter:
     name: str
     params: dict[str, str]
-
 
 @dataclass(frozen=True)
 class ActivityVariableMetadata:

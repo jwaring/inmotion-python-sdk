@@ -33,6 +33,27 @@ class IMActivitiesImpl(IMActivities):
 
         return r.json()['activities']
 
+    def create_track_activity(self, activity: TrackActivityDef, record_interval: int):
+        site_data = stringify({
+            "recordInterval": record_interval,
+            "activity": asdict(activity)
+        })
+
+        r = requests.post(self._session.base_url + self._session.api_path + "/activity/track",
+                          headers=self._session.build_headers(content=site_data),
+                          data=site_data)
+        return r
+
+    def update_track_activity(self, track_key: str, activity: TrackActivityDef):
+        site_data = stringify({
+            "activity": asdict(activity)
+        })
+
+        r = requests.post(self._session.base_url + self._session.api_path + "/activity/track/" + track_key,
+                          headers=self._session.build_headers(content=site_data),
+                          data=site_data)
+        return r
+
     def create_site_activity(self, activity: SiteActivityDef, location: ActivityLocation, record_interval: int):
         site_data = stringify({
             "recordInterval": record_interval,
@@ -41,6 +62,17 @@ class IMActivitiesImpl(IMActivities):
         })
 
         r = requests.post(self._session.base_url + self._session.api_path + "/activity/site",
+                          headers=self._session.build_headers(content=site_data),
+                          data=site_data)
+        return r
+
+    def update_site_activity(self, site_key: str, activity: SiteActivityDef, location: ActivityLocation):
+        site_data = stringify({
+            "location": asdict(location),
+            "activity": asdict(activity)
+        })
+
+        r = requests.post(self._session.base_url + self._session.api_path + "/activity/site/" + site_key,
                           headers=self._session.build_headers(content=site_data),
                           data=site_data)
         return r
