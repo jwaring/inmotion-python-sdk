@@ -173,7 +173,8 @@ class AttributeDetails:
 
 @dataclass(frozen=True)
 class LockStatus:
-    lockStatus: list[ActivitySummary]
+    unlockedOn: bool
+    unlockedBy: str
 
 class ActivityDef:
     account: str
@@ -270,12 +271,19 @@ class ActivityShareInfo:
     authorised: datetime
     rules: Optional[str]
 
+
+@dataclass(frozen=True)
+class Interval:
+    start: datetime
+    end: datetime
+
+
 @dataclass(frozen=True)
 class ActivityDetails:
     key: str
     activity: ActivityDef
     lockStatus: Optional[LockStatus]
-    interval: Optional[Interval],
+    interval: Optional[Interval]
     shareInfo: Optional[list[ActivityShareInfo]]
 
 @dataclass(frozen=True)
@@ -283,7 +291,7 @@ class TrackActivityDetails(ActivityDetails):
     key: str
     activity: ActivityDef
     lockStatus: Optional[LockStatus]
-    interval: Optional[Interval],
+    interval: Optional[Interval]
     shareInfo: Optional[list[ActivityShareInfo]]
 
 @dataclass(frozen=True)
@@ -292,7 +300,7 @@ class SiteActivityDetails(ActivityDetails):
     activity: ActivityDef
     location: ActivityLocation
     lockStatus: Optional[LockStatus]
-    interval: Optional[Interval],
+    interval: Optional[Interval]
     shareInfo: Optional[list[ActivityShareInfo]]
 
 
