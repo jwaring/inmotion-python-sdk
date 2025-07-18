@@ -2,26 +2,33 @@ from abc import ABC, abstractmethod
 from datetime import timedelta
 from inmotion.models import *
 
-class IMActivities(ABC):
+class InMotionActivities(ABC):
     @abstractmethod
-    def find_activities(self, act_filter: ActivitySearchFilter):
+    def find_activities(self, act_filter: ActivitySearchFilterModel) -> ActivitiesModel:
         """
         Retrieve all site based activities that contain observational data
         """
         pass
 
     @abstractmethod
-    def find_latest_activity_stats(self, since: datetime, window_in_secs: timedelta):
-        """ Retrieve latest activities and statistics """
+    def find_activities_within_time_range(self, act_filter: ActivitySearchFilterModel, start: datetime, finish: datetime) -> ActivitiesModel:
+        """
+        Retrieve all site based activities that contain observational data within the specified time range.
+        """
         pass
 
     @abstractmethod
-    def create_track_activity(self, activity: TrackActivityDef, record_interval: int):
+    def find_latest_activity_stats(self, since: datetime, max_records) -> LastActivitiesModel:
+        """ Retrieve the latest records for all activities since the provide date, with a maximum specified history """
+        pass
+
+    @abstractmethod
+    def create_track_activity(self, activity: CreateTrackActivityModel, record_interval: int):
         """ Create a track activity based on the definition """
         pass
 
     @abstractmethod
-    def update_track_activity(self, track_key: str, activity: TrackActivityDef):
+    def update_track_activity(self, track_key: str, activity: UpdateTrackActivityModel):
         """ Update a track activity based on the definition """
         pass
 
@@ -41,12 +48,12 @@ class IMActivities(ABC):
 #        pass
 
     @abstractmethod
-    def create_site_activity(self, activity: SiteActivityDef, location: ActivityLocation, record_interval: int):
+    def create_site_activity(self, activity: CreateSiteActivityModel, location: ActivityLocationModel, record_interval: int):
         """ Create a site activity based on the definition """
         pass
 
     @abstractmethod
-    def update_site_activity(self, site_key: str, activity: SiteActivityDef, location: ActivityLocation):
+    def update_site_activity(self, site_key: str, activity: UpdateSiteActivityModel, location: ActivityLocationModel):
         """ Update a site activity based on the definition """
         pass
 
@@ -65,33 +72,32 @@ class IMActivities(ABC):
 #        """ Publish a set of site records to inmotion """
 #        pass
 
-
-class IMSession(ABC):
+class InMotionSession(ABC):
     @abstractmethod
-    def disconnect(self):
+    def disconnect(self) -> None:
         pass
 
     @abstractmethod
-    def activities(self) -> IMActivities:
+    def activities(self) -> InMotionActivities:
         """ Retrieve """
         pass
 
     @abstractmethod
-    def is_connected(self):
+    def is_connected(self) -> str:
         pass
 
     @abstractmethod
-    def base_url(self):
+    def base_url(self) -> str:
         pass
 
     @abstractmethod
-    def api_path(self):
+    def api_path(self) -> str:
         pass
 
     @abstractmethod
-    def account(self):
+    def account(self) -> str:
         pass
 
     @abstractmethod
-    def build_headers(self, content: str):
+    def build_headers(self, content: str) -> dict[str, str]:
         pass

@@ -1,11 +1,9 @@
 __pycache__
-*.egg-info
 .bsp
 .venv
 .env
-target
-project
-.metals
 .idea
-.vscode
+.python-version
+out
+dist
 /inmotion-python-sdk.iml
