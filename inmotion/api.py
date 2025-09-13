@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from datetime import timedelta
 from inmotion.models import *
 
 class InMotionActivities(ABC):
@@ -23,7 +22,7 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def create_track_activity(self, activity: CreateTrackActivityModel, record_interval: int):
+    def create_track_activity(self, activity: CreateTrackActivityModel):
         """ Create a track activity based on the definition """
         pass
 
@@ -48,12 +47,12 @@ class InMotionActivities(ABC):
 #        pass
 
     @abstractmethod
-    def create_site_activity(self, activity: CreateSiteActivityModel, location: ActivityLocationModel, record_interval: int):
+    def create_site_activity(self, activity: CreateSiteActivityModel):
         """ Create a site activity based on the definition """
         pass
 
     @abstractmethod
-    def update_site_activity(self, site_key: str, activity: UpdateSiteActivityModel, location: ActivityLocationModel):
+    def update_site_activity(self, site_key: str, activity: UpdateSiteActivityModel):
         """ Update a site activity based on the definition """
         pass
 

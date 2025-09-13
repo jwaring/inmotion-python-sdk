@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "inmotion-python-sdk"
-version = "0.1.0"
+name = "inmotion"
+version = "0.2.0"
 description = "An SDK for integrating with inMotion API"
 authors = [{ name = "Jason Waring", email = "jason@softwaringsolutions.com" }]
 license = { text = "MIT" }
@@ -16,12 +16,13 @@ dependencies = [
           "python-dotenv",
           "pandas",
           "requests"]
+classifiers = ["Private :: Do Not Upload"]
 
 [project.optional-dependencies]
 dev = ["pytest", "tox"]
 
-#[project.scripts]
-#your-package = "your_package.main:main"
+[project.scripts]
+test = "scripts.test:main"
 
 [tool.hatch.build]
-include = ["src/imnotion"]
+include = ["inmotion"]

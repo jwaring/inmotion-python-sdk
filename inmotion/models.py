@@ -52,45 +52,45 @@ class AttributeKind:
     UNKNOWN = 'UNKNOWN'
 
 class ActivityChannelType:
-    AS_ACQUIRED = "AA"
-    AS_QUALITY_CONTROLLED = "QC"
-    AS_PROCESSED = "PR"
+    AS_ACQUIRED = "AS_ACQUIRED"
+    AS_QUALITY_CONTROLLED = "AS_QUALITY_CONTROLLED"
+    AS_PROCESSED = "AS_PROCESSED"
 
-@dataclass(frozen=True)
+@dataclass
 class Interval:
     start: datetime
     end: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class SensorValueModel:
     pass
 
-@dataclass(frozen=True)
+@dataclass
 class ValidRangeModel:
     lower: float
     upper: float
 
-@dataclass(frozen=True)
+@dataclass
 class SensorValueFloatModel(SensorValueModel):
     value: float
 
-@dataclass(frozen=True)
+@dataclass
 class SensorValueIntModel(SensorValueModel):
     value: int
 
-@dataclass(frozen=True)
+@dataclass
 class SensorValueLongModel(SensorValueModel):
     value: int
 
-@dataclass(frozen=True)
+@dataclass
 class SensorValueStringModel(SensorValueModel):
     value: str
 
-@dataclass(frozen=True)
+@dataclass
 class SensorValueDateTimeModel(SensorValueModel):
     value: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class SensorValueBooleanModel(SensorValueModel):
     value: bool
 
@@ -98,52 +98,52 @@ class AttributeModel:
     kind: AttributeKind
     multiple: bool
 
-@dataclass(frozen=True)
+@dataclass
 class StringAttrModel(AttributeModel):
-    kind: AttributeKind = AttributeKind.STRING
+    kind: AttributeKind = "STRING" #AttributeKind.STRING
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class IntAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.INTEGER
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class BooleanAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.BOOLEAN
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class NumericAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.NUMERIC
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class DateTimeAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.TIME
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class StringListAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.STRING
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class IntListAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.INTEGER
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class BooleanListAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.BOOLEAN
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class NumericListAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.NUMERIC
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class DateTimeListAttrModel(AttributeModel):
     kind: AttributeKind = AttributeKind.TIME
     multiple: bool = True
@@ -152,72 +152,72 @@ class AttributeValueModel (AttributeModel):
     kind: AttributeKind
     multiple: bool
 
-@dataclass(frozen=True)
+@dataclass
 class StringAttrValueModel(AttributeValueModel):
     value: str
     kind: AttributeKind = AttributeKind.STRING
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class IntAttrValueModel(AttributeValueModel):
     value: int
     kind: AttributeKind = AttributeKind.INTEGER
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class BooleanAttrValueModel(AttributeValueModel):
     value: bool
     kind: AttributeKind = AttributeKind.BOOLEAN
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class NumericAttrValueModel(AttributeValueModel):
     value: float
     kind: AttributeKind = AttributeKind.NUMERIC
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class DateTimeAttrValueModel(AttributeValueModel):
     value: datetime
     kind: AttributeKind = AttributeKind.TIME
     multiple: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class StringListAttrValueModel(AttributeValueModel):
     value: list[str]
     kind: AttributeKind = AttributeKind.STRING
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class IntListAttrValueModel(AttributeValueModel):
     value: list[int]
     kind: AttributeKind = AttributeKind.INTEGER
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class BooleanListAttrValueModel(AttributeValueModel):
     value: list[bool]
     kind: AttributeKind = AttributeKind.BOOLEAN
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class NumericListAttrValueModel(AttributeValueModel):
     value: list[float]
     kind: AttributeKind = AttributeKind.NUMERIC
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class DateTimeListValueAttrModel(AttributeValueModel):
     value: list[datetime]
     kind: AttributeKind = AttributeKind.TIME
     multiple: bool = True
 
-@dataclass(frozen=True)
+@dataclass
 class MessageResponseModel:
     success: bool
     message: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class UserModel:
     key: str
     userName: str
@@ -234,7 +234,7 @@ class UserModel:
     lastName: Optional[str]
     avatarUrl: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class UserAttributesModel:
     userName: str
     displayName: str
@@ -245,23 +245,23 @@ class UserAttributesModel:
     avatarUrl: Optional[str]
     attrs: dict[str, AttributeModel]
 
-@dataclass(frozen=True)
+@dataclass
 class UserPasswordRequestModel:
     userNameOrEmail: str
 
-@dataclass(frozen=True)
+@dataclass
 class UserUnregisteredResponseModel:
     key: str
     userKey: str
     message: str
 
-@dataclass(frozen=True)
+@dataclass
 class ChangeReasonModel:
     reason: str
     date: datetime
     byUser: str
 
-@dataclass(frozen=True)
+@dataclass
 class AddressModel:
     lines: list[str]
     city: str
@@ -269,7 +269,7 @@ class AddressModel:
     postcode: str
     country: str
 
-@dataclass(frozen=True)
+@dataclass
 class AccountCreatorModel:
     name: str
     status: str
@@ -281,7 +281,7 @@ class AccountCreatorModel:
     expiration: Optional[datetime]
     uuid: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountModel:
     name: str
     address: Optional[AddressModel]
@@ -289,7 +289,7 @@ class AccountModel:
     attrs: dict[str, AttributeModel]
     profiles: list[str]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountSummaryModel:
     key: str
     name: str
@@ -303,7 +303,7 @@ class AccountSummaryModel:
     lastUpdated: datetime
     expiration: Optional[datetime]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountDetailsModel:
     key: str
     name: str
@@ -320,7 +320,7 @@ class AccountDetailsModel:
     expiration: Optional[datetime]
     lastUpdated: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class AccountPrivilegesModel:
     accountOwner: bool
     viewAccountDetails: bool
@@ -330,19 +330,19 @@ class AccountPrivilegesModel:
     changeStreams: bool
     deleteStreams: bool
 
-@dataclass(frozen=True)
+@dataclass
 class AccountProfileTypeModel:
     key: str
     code: str
     name: str
     priorityOrder: Optional[int] = None
 
-@dataclass(frozen=True)
+@dataclass
 class AccountTagsModel:
     key: str
     tags: list[str]
 
-@dataclass(frozen=True)
+@dataclass
 class UserRegistrationModel:
     userKey: str
     userName: str
@@ -356,7 +356,7 @@ class UserRegistrationModel:
     lastName: Optional[str]
     avatarUrl: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountRegistrationModel:
     owner: UserRegistrationModel
     name: str
@@ -365,13 +365,13 @@ class AccountRegistrationModel:
     profiles: list[str]
     attrs: dict[str, AttributeModel]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountUserUnregisteredModel:
     key: str
     userKey: str
     message: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountUserSummaryModel:
     userKey: str
     userName: str
@@ -388,30 +388,30 @@ class AccountUserSummaryModel:
     lastName: Optional[str]
     avatarUrl: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountUpdateBatchCommandModel:
     action: str
     userName: str
     privileges: Optional[AccountPrivilegesModel]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountUpdateBatchResultModel:
     action: str
     userName: str
     status: str
     message: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountUpdateBatchResultsModel:
     updated: list[AccountUpdateBatchResultModel]
     users: list[AccountUserSummaryModel]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountUsersModel:
     accountKey: str
     users: list[AccountUserSummaryModel]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountAuditRecordModel:
     reasonCode: str
     context: str
@@ -419,13 +419,13 @@ class AccountAuditRecordModel:
     updatedOn: datetime
     updatedBy: str
 
-@dataclass(frozen=True)
+@dataclass
 class AccountMarkedForDeletionModel:
     success: bool
     accountMarked: bool
     userMarked: bool
 
-@dataclass(frozen=True)
+@dataclass
 class UserAccountSummaryModel:
     key: str
     name: str
@@ -441,25 +441,25 @@ class UserAccountSummaryModel:
     profiles: list[str]
     privileges: AccountPrivilegesModel
 
-@dataclass(frozen=True)
+@dataclass
 class AccountAPIKeyAdminCreatorModel:
     name: str
     delegate: str
     privs: AccountPrivilegesModel
     daysToExpire: Optional[int]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountAPIKeyCreatorModel:
     name: str
     privs: AccountPrivilegesModel
     expiryOn: Optional[datetime]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountAPIKeyUpdatorModel:
     name: Optional[str]
     privs: Optional[AccountPrivilegesModel]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountAPIKeyModel:
     name: str
     apiKey: str
@@ -470,28 +470,28 @@ class AccountAPIKeyModel:
     created: datetime
     lastModified: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class AccountAPIKeyResponseModel:
     apiKey: str
 
-@dataclass(frozen=True)
+@dataclass
 class AccountDevKeyAdminCreatorModel:
     name: str
     hmacEnabled: bool
     daysToExpire: Optional[int]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountDevKeyCreatorModel:
     name: str
     hmacEnabled: bool
     expiryOn: Optional[datetime]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountDevKeyUpdatorModel:
     name: Optional[str]
     hmacEnabled: Optional[bool]
 
-@dataclass(frozen=True)
+@dataclass
 class AccountDevKeyModel:
     name: str
     devKey: str
@@ -503,16 +503,16 @@ class AccountDevKeyModel:
     created: datetime
     lastModified: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class AccountDevKeyResponseModel:
     devKey: str
 
-@dataclass(frozen=True)
+@dataclass
 class OTCModel:
     publicKey: str
     privateKey: str
 
-@dataclass(frozen=True)
+@dataclass
 class StorageProfileModel:
     name: str
     partition: str
@@ -521,7 +521,7 @@ class StorageProfileModel:
     recordVarying: bool
     binInMs: int
 
-@dataclass(frozen=True)
+@dataclass
 class DSVariableModel:
     name: str
     units: str
@@ -532,7 +532,7 @@ class DSVariableModel:
     recordDim: Optional[str] = None
     stdDataType: Optional[str] = None
 
-@dataclass(frozen=True)
+@dataclass
 class DataChannelCreatorModel:
     channelType: str
     profiles: dict[str, StorageProfileModel]
@@ -541,7 +541,7 @@ class DataChannelCreatorModel:
     vars: dict[str, DSVariableModel]
     created: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class DataChannelModel:
     dsKey: str
     dsVersion: int
@@ -552,7 +552,7 @@ class DataChannelModel:
     vars: dict[str, DSVariableModel]
     created: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class DataChannelDetailsModel:
     dsKey: str
     dsVersion: int
@@ -566,7 +566,7 @@ class DataChannelDetailsModel:
     start: Optional[datetime] = None
     end: Optional[datetime] = None
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamCreatorModel:
     name: str
     description: str
@@ -584,7 +584,7 @@ class DataStreamCreatorModel:
     created: datetime
     appKey: Optional[str] = None
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamModel:
     name: str
     description: str
@@ -603,12 +603,12 @@ class DataStreamModel:
     created: datetime
     appKey: Optional[str] = None
 
-@dataclass(frozen=True)
+@dataclass
 class LockStatusModel:
     unlockedOn: datetime
     unlockedBy: str
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamSummaryModel:
     key: str
     name: str
@@ -630,7 +630,7 @@ class DataStreamSummaryModel:
     created: datetime
     lastUpdated: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamDetailsModel:
     key: str
     dataStream: DataStreamModel
@@ -646,7 +646,7 @@ class DataStreamBlobMetadataModel:
     size: int
     dataFormat: str
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamInvariantBlobMetadataModel(DataStreamBlobMetadataModel):
     dataStreamKey: str
     dataKey: str
@@ -654,7 +654,7 @@ class DataStreamInvariantBlobMetadataModel(DataStreamBlobMetadataModel):
     size: int
     dataFormat: str
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamRecordsBlobMetadataModel(DataStreamBlobMetadataModel):
     dataStreamKey: str
     dataKey: str
@@ -665,13 +665,13 @@ class DataStreamRecordsBlobMetadataModel(DataStreamBlobMetadataModel):
     end: datetime
     nRecords: int
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamBlobSummaryModel(DataStreamBlobMetadataModel):
     dsSummary: DataStreamSummaryModel
     attrs: dict[str, AttributeModel]
     profiles: dict[str, list[DataStreamBlobMetadataModel]]
 
-@dataclass(frozen=True)
+@dataclass
 class DataStreamFilterModel:
     accounts: list[str] = None
     start: Optional[datetime] = None
@@ -682,12 +682,12 @@ class DataStreamFilterModel:
     acqConvs: Optional[list[str]] = None
     coordConvs: Optional[list[str]] = None
 
-@dataclass(frozen=True)
+@dataclass
 class SDTValidRangeModel:
     lower: float
     upper: float
 
-@dataclass(frozen=True)
+@dataclass
 class StandardDataVariantTypeModel:
     key: str
     name: str
@@ -695,7 +695,7 @@ class StandardDataVariantTypeModel:
     description: Optional[str]
     deprecated: bool
 
-@dataclass(frozen=True)
+@dataclass
 class StandardDataTypeModel:
     key: str
     name: str
@@ -710,7 +710,7 @@ class StandardDataTypeModel:
     synonyms: Optional[list[str]]
     deprecated: bool
 
-@dataclass(frozen=True)
+@dataclass
 class FolioSetModel:
     label: str
     description: str
@@ -719,7 +719,7 @@ class FolioSetModel:
     created: datetime
     appKey: Optional[str] = None
 
-@dataclass(frozen=True)
+@dataclass
 class FolioSetDetailsModel:
     key: str
     label: str
@@ -730,7 +730,7 @@ class FolioSetDetailsModel:
     lastUpdated: datetime
     appKey: Optional[str] = None
 
-@dataclass(frozen=True)
+@dataclass
 class FolioStreamModel:
     name: str
     classifer: str
@@ -738,7 +738,7 @@ class FolioStreamModel:
     isAssociation: bool
     isActive: bool
 
-@dataclass(frozen=True)
+@dataclass
 class FolioModel:
     label: str
     description: str
@@ -746,7 +746,7 @@ class FolioModel:
     attrs: dict[str, AttributeModel]
     streams: dict[str, FolioStreamModel]
 
-@dataclass(frozen=True)
+@dataclass
 class FolioSummaryModel:
     key: str
     label: str
@@ -754,7 +754,7 @@ class FolioSummaryModel:
     created: datetime
     lastUpdated: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class FolioDetailsModel:
     key: str
     fsKey: str
@@ -765,7 +765,7 @@ class FolioDetailsModel:
     streams: dict[str, FolioStreamModel]
     lastUpdated: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class SensorModel:
     name: str
     kind: str
@@ -774,14 +774,14 @@ class SensorModel:
     standardDataType: Optional[str]
 
 
-@dataclass(frozen=True)
+@dataclass
 class GeoExtentModel:
     minimumLatitude: float
     maximumLatitude: float
     minimumLongitude: float
     maximumLongitude: float
 
-@dataclass(frozen=True)
+@dataclass
 class VariableStatisticsModel:
     nObs: int
     minimum: float
@@ -791,7 +791,7 @@ class VariableStatisticsModel:
     p80: float
     maximum: float
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityModel:
     account: str
     actType: str
@@ -808,7 +808,7 @@ class ActivityModel:
     sensors: list[SensorModel]
     attrs: dict[str, AttributeValueModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivitySummaryModel:
     key: str
     account: str
@@ -826,7 +826,7 @@ class ActivitySummaryModel:
     end: Optional[datetime]
     lockStatus: Optional[LockStatusModel] = None
 
-@dataclass(frozen=True)
+@dataclass
 class ActivitySearchFilterModel:
     nameFilter: Optional[str] = None
     categoryFilter: Optional[str] = None
@@ -834,13 +834,19 @@ class ActivitySearchFilterModel:
     acqConvs: list[str] = None
     coordConvs: list[str] = None
 
-@dataclass(frozen=True)
+    def __post_init__(self):
+        if self.acqConvs is None:
+            self.acqConvs = []
+        if self.coordConvs is None:
+            self.coordConvs = []
+
+@dataclass
 class ActivityLocationModel:
     latitude: float
     longitude: float
     altitude: float
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityShareInfoModel:
     accountName: str
     displayName: Optional[str]
@@ -848,7 +854,7 @@ class ActivityShareInfoModel:
     authorised: datetime
     rules: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityDetailsModel:
     activity: ActivityModel
     lockStatus: Optional[LockStatusModel] = None
@@ -862,17 +868,17 @@ class ActivityBlockStatisticsModel:
     statistics: dict[str, VariableStatisticsModel]
     geoExtent: Optional[GeoExtentModel]
 
-@dataclass(frozen=True)
+@dataclass
 class DataFilterModel:
     name: str
     params: dict[str, str]
 
-@dataclass(frozen=True)
+@dataclass
 class ValidRangeModel:
     lower: float
     upper: float
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityVariableMetadataModel:
     shortName: str
     longName: str
@@ -887,12 +893,12 @@ class ActivityVariableMetadataModel:
     filters: Optional[list[DataFilterModel]]
     modulo: Optional[bool]
 
-@dataclass(frozen=True)
+@dataclass
 class LastSensorValueModel:
     value: float
     statistics: Optional[VariableStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class LastActivityStatisticsModel:
     activity: ActivitySummaryModel
     metadata: dict[str, ActivityVariableMetadataModel]
@@ -902,16 +908,16 @@ class LastActivityStatisticsModel:
     altitude: float
     sensors: dict[str, LastSensorValueModel]
 
-@dataclass(frozen=True)
+@dataclass
 class LastActivitiesModel:
     activities: dict[str, LastActivityStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityIntervalModel:
     start: datetime
     end: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class TrackRecordsMapModel(dict[str, list[Optional[float]]]):
     timeUtc: list[datetime]
     latitude: list[float]
@@ -920,7 +926,7 @@ class TrackRecordsMapModel(dict[str, list[Optional[float]]]):
     sensorExample1: list[Optional[float]]
     sensorExample2: list[Optional[float]]
 
-@dataclass(frozen=True)
+@dataclass
 class SiteRecordsMapModel(dict[str, list[Optional[float]]]):
     timeUtc: list[datetime]
     sensorExample1: list[Optional[float]]
@@ -930,33 +936,33 @@ class ActivityRecordsModel:
     records: dict[str, list[Optional[SensorValueModel]]]
     metadata: dict[str, ActivityVariableMetadataModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityShareRulesModel:
     rules: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityUpdateResponseModel:
     key: str
 
-@dataclass(frozen=True)
+@dataclass
 class ActivitiesItemModel:
     activity: ActivitySummaryModel
     location: Optional[ActivityLocationModel] = None
 
-@dataclass(frozen=True)
+@dataclass
 class ActivitiesModel:
     activities: list[ActivitiesItemModel]
 
-@dataclass(frozen=True)
+@dataclass
 class CreateTrackActivityModel:
     activity: ActivityModel
     recordInterval: int
 
-@dataclass(frozen=True)
+@dataclass
 class UpdateTrackActivityModel:
     activity: ActivityModel
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityTrackMarkerModel:
     distance: float
     timeUtc: datetime
@@ -964,21 +970,21 @@ class ActivityTrackMarkerModel:
     longitude: float
     altitude: float
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityTrackMetricsModel:
     distance: list[float]
     heading: list[float]
     speed: list[float]
     gradient: list[float]
 
-@dataclass(frozen=True)
+@dataclass
 class TrackMetricStatisticsModel:
     distance: float
     ascent: float
     descent: float
     displacement: float
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
     startTime: datetime
@@ -990,36 +996,36 @@ class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
     descent: float
     displacement: float
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityTrackDateTimeIntervalStatisticsModel:
     startInterval: datetime
     finishInterval: datetime
     blockStats: ActivityTrackBlockStatisticsModel
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityTrackDistanceIntervalStatisticsModel:
     startInterval: float
     finishInterval: float
     blockStats: ActivityTrackBlockStatisticsModel
 
-@dataclass(frozen=True)
+@dataclass
 class TrackIntervalStatisticsModel:
     byTime: list[ActivityTrackDateTimeIntervalStatisticsModel]
     byDistance: list[ActivityTrackDistanceIntervalStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityTrackStatisticsModel:
     totals: ActivityTrackBlockStatisticsModel
     intervals: Optional[TrackIntervalStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class TrackRecordsModel(ActivityRecordsModel):
     records: dict[str, list[Optional[SensorValueModel]]]
     metadata: dict[str, ActivityVariableMetadataModel]
     markers: Optional[list[ActivityTrackMarkerModel]]
     statistics: Optional[ActivityTrackStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class TrackActivityModel:
     key: str
     activity: ActivityModel
@@ -1028,7 +1034,7 @@ class TrackActivityModel:
     interval: Optional[ActivityIntervalModel]
     records: Optional[TrackRecordsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivitySiteBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
     startTime: datetime
@@ -1036,39 +1042,39 @@ class ActivitySiteBlockStatisticsModel(ActivityBlockStatisticsModel):
     statistics: dict[str, VariableStatisticsModel]
     geoExtent: Optional[GeoExtentModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivitySiteDateTimeIntervalStatisticsModel:
     startInterval: datetime
     finishInterval: datetime
     blockStats: ActivitySiteBlockStatisticsModel
 
-@dataclass(frozen=True)
+@dataclass
 class SiteIntervalStatisticsModel:
     byTime: list[ActivitySiteDateTimeIntervalStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivitySiteStatisticsModel:
     totals: ActivitySiteBlockStatisticsModel
     intervals: Optional[SiteIntervalStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class CreateSiteActivityModel:
     activity: ActivityModel
     location: ActivityLocationModel
     recordInterval: int
 
-@dataclass(frozen=True)
+@dataclass
 class UpdateSiteActivityModel:
     activity: ActivityModel
     location: Optional[ActivityLocationModel]
 
-@dataclass(frozen=True)
+@dataclass
 class SiteRecordsModel(ActivityRecordsModel):
     records: dict[str, list[Optional[SensorValueModel]]]
     metadata: dict[str, ActivityVariableMetadataModel]
     statistics: Optional[ActivitySiteStatisticsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class SiteActivityModel:
     key: str
     activity: ActivityModel
@@ -1078,21 +1084,21 @@ class SiteActivityModel:
     interval: Optional[ActivityIntervalModel]
     records: Optional[SiteRecordsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class TrackCreateActivityBatchModel:
     seqKey: Optional[str]
     activity: ActivityModel
     recordInterval: int
     records: Optional[dict[str, list[Optional[SensorValueModel]]]]
 
-@dataclass(frozen=True)
+@dataclass
 class TrackUpdateActivityBatchModel:
     seqKey: Optional[str]
     key: str
     activity: Optional[ActivityModel]
     records: Optional[dict[str, list[Optional[SensorValueModel]]]]
 
-@dataclass(frozen=True)
+@dataclass
 class SiteCreateActivityBatchModel:
     seqKey: Optional[str]
     activity: ActivityModel
@@ -1100,7 +1106,7 @@ class SiteCreateActivityBatchModel:
     recordInterval: int
     records: Optional[dict[str, list[Optional[SensorValueModel]]]]
 
-@dataclass(frozen=True)
+@dataclass
 class SiteUpdateActivityBatchModel:
     seqKey: Optional[str]
     key: str
@@ -1108,22 +1114,22 @@ class SiteUpdateActivityBatchModel:
     location: Optional[ActivityLocationModel]
     records: Optional[dict[str, list[Optional[SensorValueModel]]]]
 
-@dataclass(frozen=True)
+@dataclass
 class TrackActivityBatchCommandsModel:
     create: list[TrackCreateActivityBatchModel]
     update: list[TrackUpdateActivityBatchModel]
 
-@dataclass(frozen=True)
+@dataclass
 class SiteActivityBatchCommandsModel:
     create: list[SiteCreateActivityBatchModel]
     update: list[SiteUpdateActivityBatchModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityBatchCommandsModel:
     tracks: Optional[TrackActivityBatchCommandsModel]
     sites: Optional[SiteActivityBatchCommandsModel]
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityBatchResultModel:
     seqKey: str
     status: int
@@ -1131,7 +1137,7 @@ class ActivityBatchResultModel:
     message: Optional[str] = None
     hint: Optional[str] = None
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityTypeModel:
     key: str
     name: str
@@ -1144,7 +1150,7 @@ class ActivityTypeModel:
     allowedAdapters: list[str]
     deprecated: bool = False
 
-@dataclass(frozen=True)
+@dataclass
 class UploadMetadataModel:
     account: str
     state: str
@@ -1157,25 +1163,25 @@ class UploadMetadataModel:
     processingKey: Optional[str] = None
     infoMessage: Optional[str] = None
 
-@dataclass(frozen=True)
+@dataclass
 class UploadMetadataChangeCommandModel:
     mimeType: str
     nature: str
     attributes: dict[str, AttributeValueModel]
 
-@dataclass(frozen=True)
+@dataclass
 class MasterDataModel:
     profileTypes: list[AccountProfileTypeModel]
     activityTypes: list[ActivityTypeModel]
 
-@dataclass(frozen=True)
+@dataclass
 class AuthenticationRequestModel:
     username: str
     password: str
     requiredApiVersion: Optional[str] = None
     withMasterData: Optional[bool] = None
 
-@dataclass(frozen=True)
+@dataclass
 class AuthenticationSessionModel:
     token: str
     copyright: str
@@ -1187,12 +1193,12 @@ class AuthenticationSessionModel:
     requestedVersionExpiryDate: Optional[datetime]
     masterData: Optional[MasterDataModel] = None
 
-@dataclass(frozen=True)
+@dataclass
 class APICapabilitiesRequestModel:
     requiredApiVersion: Optional[str] = None
     withMasterData: Optional[bool] = None
 
-@dataclass(frozen=True)
+@dataclass
 class APICapabilitiesModel:
     copyright: str
     highestAvailableVersion: str
@@ -1200,17 +1206,24 @@ class APICapabilitiesModel:
     apiPath: str
     openApiUrl: str
     requestedVersion: str
-    requestedVersionExpiryDate: Optional[datetime]
+    requestedVersionExpiryDate: Optional[datetime] = None
     masterData: Optional[MasterDataModel] = None
 
-@dataclass(frozen=True)
+    def __post_init__(self):
+        if self.requestedVersionExpiryDate:
+            self.requestedVersionExpiryDate = self.requestedVersionExpiryDate.isoformat() if isinstance(self.requestedVersionExpiryDate, datetime) else self.requestedVersionExpiryDate
+        if self.masterData:
+            self.masterData = MasterDataModel(**self.masterData) if isinstance(self.masterData, dict) else self.masterData
+
+@dataclass
 class StatusMessageModel:
     status: str
 
-@dataclass(frozen=True)
+@dataclass
 class ErrorMessageModel:
     error: str
 
+@dataclass
 class InMotionAPIModel:
     service: str
     copyright: str
@@ -1220,20 +1233,20 @@ class InMotionAPIModel:
     status: str
     expiryDate: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class APILoginModel:
     username: str
     password: str
     apiVersion: Optional[str]
     withMasterData: Optional[bool] = None
 
-@dataclass(frozen=True)
+@dataclass
 class APISessionModel:
     token: str
     api: InMotionAPIModel
     masterData: Optional[MasterDataModel] = None
 
-@dataclass(frozen=True)
+@dataclass
 class InMotionAPIV2Model(InMotionAPIModel):
     service: str
     copyright: str
@@ -1244,19 +1257,19 @@ class InMotionAPIV2Model(InMotionAPIModel):
     expiryDate: Optional[str]
     openApiUrl: str
 
-@dataclass(frozen=True)
+@dataclass
 class ActivityAPIPathModel:
     track: dict[str, str]
     site: dict[str, str]
     masterData: Optional[dict[str, str]]
 
-@dataclass(frozen=True)
+@dataclass
 class DSBlobAPIPathModel:
     get: str
     invariantData: dict[str, str]
     recordData: dict[str, str]
 
-@dataclass(frozen=True)
+@dataclass
 class InMotionAPIV1Model(InMotionAPIModel):
     service: str
     copyright: str
@@ -1275,6 +1288,6 @@ class InMotionAPIV1Model(InMotionAPIModel):
     dsBlob: Optional[DSBlobAPIPathModel] = None
     dsBlobs: Optional[dict[str, str]] = None
 
-@dataclass(frozen=True)
+@dataclass
 class AdminArchiveLocationModel:
     location: str

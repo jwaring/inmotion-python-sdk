@@ -1,13 +1,14 @@
+from types import SimpleNamespace
 from typing import cast
 
 import requests
 
-from activities import InMotionActivitiesImpl
+from inmotion.activities import InMotionActivitiesImpl
 from inmotion import InMotionSession, InMotionActivities
 from inmotion.utils import *
-from models import APICapabilitiesModel
+from inmotion.models import *
 
-INMOTION_API_VERSION = '2.00'
+INMOTION_API_VERSION = '2.0.0'
 
 class InMotionAPIKeySession(InMotionSession):
 
@@ -61,39 +62,45 @@ class InMotionAPIKeyClient(object):
         """
          Validate connectivity and extract tha API path by using the capabilities endpoint.
         """
-        r = requests.get(self._base_url + "/api/capabilities",
+        capabilitiesRequired = stringify({
+            'requiredApiVersion': self._api_version,
+            'withMasterData': True
+        })
+        r = requests.post(self._base_url + "/api/latest/authenticate/capabilities",
                           headers=build_im_headers(
                               dev_key=self._dev_key,
                               dev_secret=self._dev_secret,
-                              content='',
+                              content=capabilitiesRequired,
                               extra_name='X-API-KEY',
                               extra_value=self._api_key,
-                          ))
+                          ),
+                          data=capabilitiesRequired)
 
         if r.status_code != 200:
             raise Exception('Failed to authenticate to inMotion')
 
-        capabilities = cast(APICapabilitiesModel, r.json())
-        if not capabilities or not isinstance(capabilities, APICapabilitiesModel):
-            raise Exception('Malformed capabilities model')
+        try:
+            capabilities = APICapabilitiesModel(**r.json())
+            match capabilities.status:
+                case 'active':
+                    return InMotionAPIKeySession(self._base_url,
+                                                 self._dev_key,
+                                                 self._dev_secret,
+                                                 self._api_key,
+                                                 account,
+                                                 capabilities.apiPath)
 
-        match capabilities.status:
-            case 'active':
-                return InMotionAPIKeySession(self._base_url,
-                                             self._dev_key,
-                                             self._dev_secret,
-                                             self._api_key,
-                                             account,
-                                             capabilities.apiPath)
+                case 'expiring':
+                    print(f'Warning: API version {capabilities.requestedVersion} is expiring on {capabilities.requestedVersionExpiryDate}. ')
+                    return InMotionAPIKeySession(self._base_url,
+                                                 self._dev_key,
+                                                 self._dev_secret,
+                                                 self._api_key,
+                                                 account,
+                                                 capabilities.apiPath)
 
-            case 'expiring':
-                print(f'Warning: API version {capabilities.requestedVersion} is expiring on {capabilities.requestedVersionExpiryDate}. ')
-                return InMotionAPIKeySession(self._base_url,
-                                             self._dev_key,
-                                             self._dev_secret,
-                                             self._api_key,
-                                             account,
-                                             capabilities.apiPath)
+                case _:
+                    raise Exception(f'API version {capabilities.requestedVersion} expired or unavailable')
 
-            case _:
-                raise Exception(f'API version {capabilities.requestedVersion} expired or unavailable')
+        except:
+            raise Exception('Malformed capabilities model received from inMotion')

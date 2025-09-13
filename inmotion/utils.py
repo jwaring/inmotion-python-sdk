@@ -1,20 +1,17 @@
+import dataclasses
 import json
 from base64 import b64encode
 from datetime import datetime
 from hashlib import md5
-from typing import Optional
 
-from Crypto.Hash import SHA1, HMAC
-
-from models import APICapabilitiesModel
-
-class ResultCode:
-    success = 'success'
-    warning = 'warning'
-    error = 'error'
+from Crypto.Hash import HMAC
+from Crypto.Hash import SHA1
 
 def stringify(o):
-    return json.dumps(o, separators=(',', ':'))
+    if dataclasses.is_dataclass(o):
+        return json.dumps(dataclasses.asdict(o), separators=(',', ':'))
+    else:
+        return json.dumps(o, separators=(',', ':'))
 
 
 def create_signature(secret_key, string) -> str:
@@ -34,7 +31,7 @@ def build_im_headers(dev_key: str, dev_secret: str, content: str ='', extra_name
     }
 
     if extra_name and extra_value:
-        headers[extra_name] = extra_name
+        headers[extra_name] = extra_value
 
     return headers
 
