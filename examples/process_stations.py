@@ -77,60 +77,62 @@ def build_site_records(obs):
     return records
 
 
+def main():
+
+    # Establish a session with inMotion
+
+    if not config['DRY_RUN']:
+        client = InMotionAPIKeyClient(config['BASE_URL'], config['DEV_KEY'], config['DEV_SECRET'], config['API_KEY'])
+        session = client.get_session(config['ACCOUNT'])
+        # activities = api.load_site_activities(session)
+        # print(json.dumps(activities, indent=4))
+
+    # Load the stations
+    stations = bom.read_stations(config['ROOT_DIR'] + '/stations_db.txt')
+    for st in stations.iterrows():
+        row = st[0]
+        station = st[1]
+
+        # Compute a unique identifier for the source, which will be the same as the directory
+        source_name = station['name'].strip()
+        source_id = to_station_id(source_name)
+        state = station['state'].strip().lower()
+
+        if config['DRY_RUN'] and source_id != 'georgetown_airport':
+            continue
+
+        # Create the site activity and retain the uuid for the site
+        print('Processing station: ' + source_name)
+        site_location = build_site_location(station)
+        activity = build_site_activity(config['ACCOUNT'], source_id, source_name, station)
+        if not config['DRY_RUN']:
+            r = session.activities().create_site_activity(CreateSiteActivityModel(activity, site_location, 86400 * 1000))
+            if r.status_code != 200:
+                print(r.content)
+                raise Exception('Unable to create the site activity for ' + source_id)
+            site_key = r.json()['key']
+
+        stationDir = config['ROOT_DIR'] + '/' + state + '/' + source_id
+        if not os.path.isdir(stationDir):
+            stationDir = config['ROOT_DIR'] + '/' + state + '/' + DIR_MAPPINGS[source_id]
+            if not os.path.isdir(stationDir):
+                print('ERROR: Cannot locate ' + source_id + ' in the ' + state + ' folder')
+
+        list_dir = os.listdir(stationDir)
+        list_dir = [f for f in list_dir if f.endswith(
+            '.csv')]
+        for f in sorted(list_dir):
+            print('   ... ' + stationDir + '/' + f)
+            obs = bom.read_obs(stationDir + '/' + f)
+            records = build_site_records(obs)
+            if not config['DRY_RUN']:
+                r = session.activities().publish_site_records(site_key, records)
+                if r.status_code != 200:
+                    raise Exception('Failed to upload records')
+            else:
+                print(records)
+
 # ***** MAIN *****
 
-
-# Establish a session with inMotion
-
-if not config['DRY_RUN']:
-    client = InMotionAPIKeyClient(config['BASE_URL'], config['DEV_KEY'], config['DEV_SECRET'], config['API_KEY'])
-    session = client.get_session(config['ACCOUNT'])
-    # activities = api.load_site_activities(session)
-    # print(json.dumps(activities, indent=4))
-
-# Load the stations
-stations = bom.read_stations(config['ROOT_DIR'] + '/stations_db.txt')
-for st in stations.iterrows():
-    row = st[0]
-    station = st[1]
-
-    # Compute a unique identifier for the source, which will be the same as the directory
-    source_name = station['name'].strip()
-    source_id = to_station_id(source_name)
-    state = station['state'].strip().lower()
-
-    if config['DRY_RUN'] and source_id != 'georgetown_airport':
-        continue
-
-    # Create the site activity and retain the uuid for the site
-    print('Processing station: ' + source_name)
-    site_location = build_site_location(station)
-    activity = build_site_activity(config['ACCOUNT'], source_id, source_name, station)
-    if not config['DRY_RUN']:
-        r = session.activities().create_site_activity(CreateSiteActivityModel(activity, site_location, 86400 * 1000))
-        if r.status_code != 200:
-            print(r.content)
-            raise Exception('Unable to create the site activity for ' + source_id)
-        site_key = r.json()['key']
-
-    stationDir = config['ROOT_DIR'] + '/' + state + '/' + source_id
-    if not os.path.isdir(stationDir):
-        stationDir = config['ROOT_DIR'] + '/' + state + '/' + DIR_MAPPINGS[source_id]
-        if not os.path.isdir(stationDir):
-            print('ERROR: Cannot locate ' + source_id + ' in the ' + state + ' folder')
-
-    list_dir = os.listdir(stationDir)
-    list_dir = [f for f in list_dir if f.endswith(
-        '.csv')]
-    for f in sorted(list_dir):
-        print('   ... ' + stationDir + '/' + f)
-        obs = bom.read_obs(stationDir + '/' + f)
-        records = build_site_records(obs)
-        if not config['DRY_RUN']:
-            r = session.activities().publish_site_records(site_key, records)
-            if r.status_code != 200:
-                raise Exception('Failed to upload records')
-        else:
-            print(records)
-
-#    break  # Only do one!
+if __name__ == "__main__":
+    main()
