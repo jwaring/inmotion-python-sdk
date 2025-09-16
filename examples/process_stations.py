@@ -43,7 +43,7 @@ def read_obs(filepath, only_after: datetime = None) -> pd.DataFrame:
     df["date"] = pd.to_datetime(df["date"], format='%d/%m/%Y')
     df.attrs = OBSERVATION_ATTRS
 
-    if only_after:
+    if only_after is not None:
         df = df[df['date'] > only_after]
     return df
 
@@ -98,7 +98,7 @@ def to_float(v) -> float:
     if v.strip():
         return float(v)
     else:
-        return float('NaN')
+        return float(0.0)
 
 def build_site_records(obs, only_after=None) -> dict[str, list[int | float]]:
     records: dict[str, list[int | float]] = {
@@ -137,8 +137,6 @@ def main():
         source_id = to_station_id(source_name)
         state = station['state'].strip().lower()
 
-        print('Processing station: ' + source_name)
-
         # Create the site activity and retain the uuid for the site
         site_location = build_site_location(station)
         activity = build_site_activity(account_key, source_id, source_name, station)
@@ -157,7 +155,6 @@ def main():
             # Doesn't exist, so create it
             r = session.activities().create_site_activity(CreateSiteActivityModel(activity, site_location, 86400 * 1000))
             site_key = r.key
-
 
         # Now process the data files for the station
         station_dir = root_dir+ '/' + state + '/' + source_id
@@ -185,7 +182,7 @@ def main():
 
             # Build the records and publish them
             records = build_site_records(obs, only_after)
-            print(' ... ' + str(num_valid_records) + ' records for date period: ' + str(file_date))
+            print(' Adding ' + str(num_valid_records) + ' records to ' + source_name + ' for date period: ' + str(file_date))
             session.activities().publish_site_records(site_key, records)
 
 # ***** MAIN *****
