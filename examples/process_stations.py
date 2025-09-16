@@ -1,33 +1,66 @@
 import os
 
-import bom
+from datetime import date
+
+from dotenv import dotenv_values
+import pandas as pd
+
 from inmotion.apikey_client import InMotionAPIKeyClient
 from inmotion.models import *
 
-from dotenv import dotenv_values
-
 config = dotenv_values(".env.bom")
-config['DRY_RUN'] = (config['DRY_RUN'] == 'true')
 
+# Handle know errors in directory names vs station ids.
 DIR_MAPPINGS = {
     'port_maquarie_(port_macquarie_airport_aw': 'port_maquarie_(port_macquarie_airport_aw)'
 }
 
 
+OBSERVATION_ATTRS = {
+    "names": ["stationName", "date", "evapoTranspiration", "rainfall", "panEvaporation", "maxAirTemperature", "minAirTemperature", "maxAirHumidity", "minAirHumidity", "windSpeed", "solarRadiation"],
+    "labels": ["Station Name", "Date", "Evapo-transpiration", "Rainfall", "Pan Evaporation", "Maximum Air Temperature", "Minimum Air Temperature", "Maximum Relative Humidity",
+               "Minimum Relative Humidity", "Average Wind Speed", "Solar Radiation"],
+    "standard_names": [None, None, "sensed/evapo-transpiration", "sensed/rainfall", "sensed/pan-evaporation", "sensed/maximum-air-temperature", "sensed/minimum-air-temperature",
+                       "sensed/maximum-air-humidity", "sensed/minimum-air-humidity", "sensed/wind-speed", "sensed/solar-radiation"],
+    "units": [None, None, "mm/day", "mm/day", "mm/day", "degC", "degC", "%", "%", "m/s", "MJ/m^2"]
+}
+
+
+def read_stations(filepath):
+    """ Read the station data into a data frame from the BoM database """
+    col_names = ["station_id", "state", "region_code", "name", "active_since", "latitude", "longitude"]
+    col_specs = [(0, 6), (8, 11), (12, 16), (17, 58), (59, 67), (74, 83), (84, 92)]
+    col_conv = {"station_id": str, "state": str, "region_code": str, "name": str, "active_since": pd.to_datetime, "latitude": float, "longitude": float}
+    return pd.read_fwf(filepath, header=None, names=col_names, colspecs=col_specs, converters=col_conv)
+
+
+def read_obs(filepath, only_after: datetime = None) -> pd.DataFrame:
+    """ Given a file path, read the data into a data frame """
+    df = pd.read_csv(filepath, header=None, encoding="ISO-8859-1", skiprows=13, converters={i: str for i in range(100)})
+    df = df.iloc[:-1, :]  # Remove totals
+    df.columns = OBSERVATION_ATTRS["names"]
+    df = df.astype(str)
+    df["date"] = pd.to_datetime(df["date"], format='%d/%m/%Y')
+    df.attrs = OBSERVATION_ATTRS
+
+    if only_after:
+        df = df[df['date'] > only_after]
+    return df
+
+
 def to_station_id(name):
     return name.lower().replace(' ', '_').replace('/', '_').replace('.', '').replace('_aws', '')
 
-
 def build_numeric_sensor(i) -> SensorModel:
-    name = bom.OBSERVATION_ATTRS['names'][i]
-    label = bom.OBSERVATION_ATTRS['labels'][i]
-    sdt = bom.OBSERVATION_ATTRS['standard_names'][i]
-    unit = bom.OBSERVATION_ATTRS['units'][i]
+    name = OBSERVATION_ATTRS['names'][i]
+    label = OBSERVATION_ATTRS['labels'][i]
+    sdt = OBSERVATION_ATTRS['standard_names'][i]
+    unit = OBSERVATION_ATTRS['units'][i]
     return SensorModel(name=name, kind='DOUBLE', description=label, units=unit, standardDataType=sdt)
 
 
 def build_sensor_list() -> list[SensorModel]:
-    return [build_numeric_sensor(i) for i in range(2, len(bom.OBSERVATION_ATTRS['names']))]
+    return [build_numeric_sensor(i) for i in range(2, len(OBSERVATION_ATTRS['names']))]
 
 
 def build_site_location(station) -> ActivityLocationModel:
@@ -58,37 +91,34 @@ def build_site_activity(account_uuid, source_id, source_name, station) -> Activi
         }
     )
 
-
-def to_float(v):
+def to_float(v) -> float:
     if v.strip():
         return float(v)
     else:
-        return 0.0  # None
+        return float('NaN')
 
-
-def build_site_records(obs):
-    records = {
+def build_site_records(obs, only_after=None) -> dict[str, list[int | float]]:
+    records: dict[str, list[int | float]] = {
         'timeUtc': [int(d.timestamp() * 1000) for d in obs['date']]
     }
 
     for i in range(2, len(obs.columns)):
         col_name = obs.columns[i]
-        records[col_name] = [to_float(v) for v in obs[col_name]]
+        records[col_name] = []
+        for v in obs[col_name]:
+            records[col_name].append(to_float(v))
     return records
 
 
 def main():
-
     # Establish a session with inMotion
-
-    if not config['DRY_RUN']:
-        client = InMotionAPIKeyClient(config['BASE_URL'], config['DEV_KEY'], config['DEV_SECRET'], config['API_KEY'])
-        session = client.get_session(config['ACCOUNT'])
-        # activities = api.load_site_activities(session)
-        # print(json.dumps(activities, indent=4))
+    client = InMotionAPIKeyClient(config['BASE_URL'], config['DEV_KEY'], config['DEV_SECRET'], config['API_KEY'])
+    session = client.get_session(config['ACCOUNT'])
+    # activities = api.load_site_activities(session)
+    # print(json.dumps(activities, indent=4))
 
     # Load the stations
-    stations = bom.read_stations(config['ROOT_DIR'] + '/stations_db.txt')
+    stations = read_stations(config['ROOT_DIR'] + '/stations_db.txt')
     for st in stations.iterrows():
         row = st[0]
         station = st[1]
@@ -98,39 +128,55 @@ def main():
         source_id = to_station_id(source_name)
         state = station['state'].strip().lower()
 
-        if config['DRY_RUN'] and source_id != 'georgetown_airport':
-            continue
+        print('Processing station: ' + source_name)
 
         # Create the site activity and retain the uuid for the site
-        print('Processing station: ' + source_name)
         site_location = build_site_location(station)
         activity = build_site_activity(config['ACCOUNT'], source_id, source_name, station)
-        if not config['DRY_RUN']:
-            r = session.activities().create_site_activity(CreateSiteActivityModel(activity, site_location, 86400 * 1000))
-            if r.status_code != 200:
-                print(r.content)
-                raise Exception('Unable to create the site activity for ' + source_id)
-            site_key = r.json()['key']
+        only_after = None
 
-        stationDir = config['ROOT_DIR'] + '/' + state + '/' + source_id
-        if not os.path.isdir(stationDir):
-            stationDir = config['ROOT_DIR'] + '/' + state + '/' + DIR_MAPPINGS[source_id]
-            if not os.path.isdir(stationDir):
+        ## Check if the site already exists, if not then create it, else get the last date
+        r = session.activities().find_activities(ActivitySearchFilterModel(
+            nameFilter=source_name,
+            coordConvs=[CoordinateConvention.SITE],
+            categoryFilter='Site/Weather'
+        ))
+        if r and len(r.activities) > 0:
+            only_after = r.activities[0].activity.end_datetime()
+            site_key = r.activities[0].activity.key
+        else:
+            r = session.activities().create_site_activity(CreateSiteActivityModel(activity, site_location, 86400 * 1000))
+            site_key = r.key
+
+
+        # Now process the data files for the station
+        station_dir = config['ROOT_DIR'] + '/' + state + '/' + source_id
+        if not os.path.isdir(station_dir):
+            station_dir = config['ROOT_DIR'] + '/' + state + '/' + DIR_MAPPINGS[source_id]
+            if not os.path.isdir(station_dir):
                 print('ERROR: Cannot locate ' + source_id + ' in the ' + state + ' folder')
 
-        list_dir = os.listdir(stationDir)
-        list_dir = [f for f in list_dir if f.endswith(
-            '.csv')]
+        list_dir = os.listdir(station_dir)
+        list_dir = [f for f in list_dir if f.endswith('.csv')]
         for f in sorted(list_dir):
-            print('   ... ' + stationDir + '/' + f)
-            obs = bom.read_obs(stationDir + '/' + f)
-            records = build_site_records(obs)
-            if not config['DRY_RUN']:
-                r = session.activities().publish_site_records(site_key, records)
-                if r.status_code != 200:
-                    raise Exception('Failed to upload records')
+            date_str = f[-10:-4]
+            file_date = datetime.strptime(date_str, '%Y%m').date()
+            if only_after is not None:
+                if (file_date < date(year=only_after.year, month=only_after.month, day=1)):
+                    # Already processed this file in full.
+                    continue
+
+            # Read the observations from the file
+            obs = read_obs(station_dir + '/' + f, only_after)
+
+            # if the number of records is zero, then skip
+            num_valid_records = len(obs['date'])
+            if num_valid_records == 0:
+                continue
             else:
-                print(records)
+                print(' ... ' + str(num_valid_records) + ' records for date period: ' + str(file_date))
+                records = build_site_records(obs, only_after)
+                session.activities().publish_site_records(site_key, records)
 
 # ***** MAIN *****
 

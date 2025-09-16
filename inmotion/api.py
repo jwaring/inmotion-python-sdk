@@ -22,12 +22,12 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def create_track_activity(self, activity: CreateTrackActivityModel):
+    def create_track_activity(self, activity: CreateTrackActivityModel) -> ActivityUpdateResponseModel:
         """ Create a track activity based on the definition """
         pass
 
     @abstractmethod
-    def update_track_activity(self, track_key: str, activity: UpdateTrackActivityModel):
+    def update_track_activity(self, track_key: str, activity: UpdateTrackActivityModel) -> ActivityUpdateResponseModel:
         """ Update a track activity based on the definition """
         pass
 
@@ -47,12 +47,12 @@ class InMotionActivities(ABC):
 #        pass
 
     @abstractmethod
-    def create_site_activity(self, activity: CreateSiteActivityModel):
+    def create_site_activity(self, activity: CreateSiteActivityModel) -> ActivityUpdateResponseModel:
         """ Create a site activity based on the definition """
         pass
 
     @abstractmethod
-    def update_site_activity(self, site_key: str, activity: UpdateSiteActivityModel):
+    def update_site_activity(self, site_key: str, activity: UpdateSiteActivityModel) -> ActivityUpdateResponseModel:
         """ Update a site activity based on the definition """
         pass
 
@@ -66,10 +66,10 @@ class InMotionActivities(ABC):
 #        """ Retrieve records from inMotion within the requested time-period"""
 #        pass
 
-#    @abstractmethod
-#    def publish_site_records(self, site_key: str, records: SiteRecords):
-#        """ Publish a set of site records to inmotion """
-#        pass
+    @abstractmethod
+    def publish_site_records(self, site_key: str, records: dict[str, list[int | float]]):
+        """ Publish a set of site records to inmotion """
+        pass
 
 class InMotionSession(ABC):
     @abstractmethod

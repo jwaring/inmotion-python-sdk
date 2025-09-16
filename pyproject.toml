@@ -15,7 +15,9 @@ dependencies = [
           "pycryptodome",
           "python-dotenv",
           "pandas",
-          "requests"]
+          "requests",
+          "marshmallow",
+          "marshmallow_dataclass"]
 classifiers = ["Private :: Do Not Upload"]
 
 [project.optional-dependencies]

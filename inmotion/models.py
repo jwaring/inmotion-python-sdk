@@ -58,8 +58,14 @@ class ActivityChannelType:
 
 @dataclass
 class Interval:
-    start: datetime
-    end: datetime
+    start: int
+    end: int
+
+    def start_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.start / 1000.0)
+
+    def end_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.end / 1000.0)
 
 @dataclass
 class SensorValueModel:
@@ -88,7 +94,10 @@ class SensorValueStringModel(SensorValueModel):
 
 @dataclass
 class SensorValueDateTimeModel(SensorValueModel):
-    value: datetime
+    value: int
+
+    def value_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.value / 1000.0)
 
 @dataclass
 class SensorValueBooleanModel(SensorValueModel):
@@ -178,9 +187,12 @@ class NumericAttrValueModel(AttributeValueModel):
 
 @dataclass
 class DateTimeAttrValueModel(AttributeValueModel):
-    value: datetime
+    value: int
     kind: AttributeKind = AttributeKind.TIME
     multiple: bool = False
+
+    def value_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.value / 1000.0)
 
 @dataclass
 class StringListAttrValueModel(AttributeValueModel):
@@ -208,9 +220,12 @@ class NumericListAttrValueModel(AttributeValueModel):
 
 @dataclass
 class DateTimeListValueAttrModel(AttributeValueModel):
-    value: list[datetime]
+    value: list[int]
     kind: AttributeKind = AttributeKind.TIME
     multiple: bool = True
+
+    def value_datetimes(self) -> list[datetime]:
+        return [datetime.fromtimestamp(v / 1000.0) for v in self.value]
 
 @dataclass
 class MessageResponseModel:
@@ -226,13 +241,22 @@ class UserModel:
     status: str
     attrs: dict[str, AttributeModel]
     licenseVersion: str
-    licenseAccepted: datetime
-    joined: datetime
-    lastUpdated: datetime
+    licenseAccepted: int
+    joined: int
+    lastUpdated: int
     publicUserName: bool
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
+
+    def license_accepted_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
+
+    def joined_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.joined / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class UserAttributesModel:
@@ -258,8 +282,11 @@ class UserUnregisteredResponseModel:
 @dataclass
 class ChangeReasonModel:
     reason: str
-    date: datetime
+    date: int
     byUser: str
+
+    def date_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.date / 1000.0)
 
 @dataclass
 class AddressModel:
@@ -277,9 +304,12 @@ class AccountCreatorModel:
     accountType: str
     attrs: dict[str, AttributeModel]
     profiles: list[str]
-    joined: datetime
+    joined: int
     expiration: Optional[datetime]
     uuid: Optional[str]
+
+    def joined_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.joined / 1000.0)
 
 @dataclass
 class AccountModel:
@@ -298,10 +328,19 @@ class AccountSummaryModel:
     accountType: AccountType
     features: list[str]
     tokenRemaining: int
-    tokenRenewalDate: datetime
-    joined: datetime
-    lastUpdated: datetime
+    tokenRenewalDate: int
+    joined: int
+    lastUpdated: int
     expiration: Optional[datetime]
+
+    def token_renewal_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.tokenRenewalDate / 1000.0)
+
+    def joined_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.joined / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class AccountDetailsModel:
@@ -314,11 +353,26 @@ class AccountDetailsModel:
     attrs: dict[str, AttributeModel]
     profiles: list[str]
     tokenRemaining: int
-    tokenRenewalDate: datetime
+    tokenRenewalDate: int
     tokenRenewalSpecialInfo: Optional[str]
-    joined: datetime
-    expiration: Optional[datetime]
-    lastUpdated: datetime
+    joined: int
+    expiration: Optional[int]
+    lastUpdated: int
+
+    def token_renewal_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.tokenRenewalDate / 1000.0)
+
+    def joined_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.joined / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def expiration_datetime(self) -> Optional[datetime]:
+        if self.expiration is not None:
+            return datetime.fromtimestamp(self.expiration / 1000.0)
+        else:
+            return None
 
 @dataclass
 class AccountPrivilegesModel:
@@ -350,11 +404,14 @@ class UserRegistrationModel:
     displayName: str
     email: str
     attrs: dict[str, AttributeModel]
-    licenseAccepted: datetime
+    licenseAccepted: int
     publicUserName: bool
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
+
+    def license_accepted_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
 
 @dataclass
 class AccountRegistrationModel:
@@ -381,12 +438,21 @@ class AccountUserSummaryModel:
     profiles: list[str]
     privileges: AccountPrivilegesModel
     licenseVersion: str
-    licenseAccepted: datetime
-    joined: datetime
-    lastUpdated: datetime
+    licenseAccepted: int
+    joined: int
+    lastUpdated: int
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
+
+    def license_accepted_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
+
+    def joined_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.joined / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class AccountUpdateBatchCommandModel:
@@ -416,8 +482,11 @@ class AccountAuditRecordModel:
     reasonCode: str
     context: str
     data: Optional[any]
-    updatedOn: datetime
+    updatedOn: int
     updatedBy: str
+
+    def updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.updatedOn / 1000.0)
 
 @dataclass
 class AccountMarkedForDeletionModel:
@@ -434,12 +503,27 @@ class UserAccountSummaryModel:
     accountType: AccountType
     features: list[str]
     tokenRemaining: int
-    tokenRenewalDate: datetime
-    joined: datetime
-    lastUpdated: datetime
-    expiration: Optional[datetime]
+    tokenRenewalDate: int
+    joined: int
+    lastUpdated: int
+    expiration: Optional[int]
     profiles: list[str]
     privileges: AccountPrivilegesModel
+
+    def token_renewal_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.tokenRenewalDate / 1000.0)
+
+    def joined_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.joined / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def expiration_datetime(self) -> Optional[datetime]:
+        if self.expiration is not None:
+            return datetime.fromtimestamp(self.expiration / 1000.0)
+        else:
+            return None
 
 @dataclass
 class AccountAPIKeyAdminCreatorModel:
@@ -452,7 +536,13 @@ class AccountAPIKeyAdminCreatorModel:
 class AccountAPIKeyCreatorModel:
     name: str
     privs: AccountPrivilegesModel
-    expiryOn: Optional[datetime]
+    expiryOn: Optional[int]
+
+    def expiry_datetime(self) -> Optional[datetime]:
+        if self.expiryOn is not None:
+            return datetime.fromtimestamp(self.expiryOn / 1000.0)
+        else:
+            return None
 
 @dataclass
 class AccountAPIKeyUpdatorModel:
@@ -466,9 +556,21 @@ class AccountAPIKeyModel:
     accountKey: str
     delegate: str
     privs: AccountPrivilegesModel
-    expiration: Optional[datetime]
-    created: datetime
-    lastModified: datetime
+    expiration: Optional[int]
+    created: int
+    lastModified: int
+
+    def expiration_datetime(self) -> Optional[datetime]:
+        if self.expiration is not None:
+            return datetime.fromtimestamp(self.expiration / 1000.0)
+        else:
+            return None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_modified_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastModified / 1000.0)
 
 @dataclass
 class AccountAPIKeyResponseModel:
@@ -484,7 +586,13 @@ class AccountDevKeyAdminCreatorModel:
 class AccountDevKeyCreatorModel:
     name: str
     hmacEnabled: bool
-    expiryOn: Optional[datetime]
+    expiryOn: Optional[int]
+
+    def expiry_datetime(self) -> Optional[datetime]:
+        if self.expiryOn is not None:
+            return datetime.fromtimestamp(self.expiryOn / 1000.0)
+        else:
+            return None
 
 @dataclass
 class AccountDevKeyUpdatorModel:
@@ -499,9 +607,21 @@ class AccountDevKeyModel:
     accountKey: str
     testOnly: bool
     hmacEnabled: bool
-    expiration: Optional[datetime]
-    created: datetime
-    lastModified: datetime
+    expiration: Optional[int]
+    created: int
+    lastModified: int
+
+    def expiration_datetime(self) -> Optional[datetime]:
+        if self.expiration is not None:
+            return datetime.fromtimestamp(self.expiration / 1000.0)
+        else:
+            return None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_modified_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastModified / 1000.0)
 
 @dataclass
 class AccountDevKeyResponseModel:
@@ -539,7 +659,10 @@ class DataChannelCreatorModel:
     unlimitedDim: Optional[str]
     fixedDims: dict[str, int]
     vars: dict[str, DSVariableModel]
-    created: datetime
+    created: int
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
 
 @dataclass
 class DataChannelModel:
@@ -550,7 +673,10 @@ class DataChannelModel:
     unlimitedDim: Optional[str]
     fixedDims: dict[str, int]
     vars: dict[str, DSVariableModel]
-    created: datetime
+    created: int
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
 
 @dataclass
 class DataChannelDetailsModel:
@@ -561,10 +687,29 @@ class DataChannelDetailsModel:
     unlimitedDim: Optional[str]
     fixedDims: dict[str, int]
     vars: dict[str, DSVariableModel]
-    created: datetime
-    lastUpdated: datetime
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    created: int
+    lastUpdated: int
+    start: Optional[int] = None
+    end: Optional[int] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def start_datetime(self) -> Optional[datetime]:
+        if self.start is not None:
+            return datetime.fromtimestamp(self.start / 1000.0)
+        else:
+            return None
+
+    def end_datetime(self) -> Optional[datetime]:
+        if self.end is not None:
+            return datetime.fromtimestamp(self.end / 1000.0)
+        else:
+            return None
+
 
 @dataclass
 class DataStreamCreatorModel:
@@ -581,8 +726,11 @@ class DataStreamCreatorModel:
     coordConv: str
     timezone: str
     attrs: dict[str, AttributeModel]
-    created: datetime
+    created: int
     appKey: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
 
 @dataclass
 class DataStreamModel:
@@ -600,13 +748,19 @@ class DataStreamModel:
     timezone: str
     attrs: dict[str, AttributeModel]
     dataChannels: dict[str, DataChannelModel]
-    created: datetime
+    created: int
     appKey: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
 
 @dataclass
 class LockStatusModel:
-    unlockedOn: datetime
+    unlockedOn: int
     unlockedBy: str
+
+    def unlocked_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.unlockedOn / 1000.0)
 
 @dataclass
 class DataStreamSummaryModel:
@@ -625,19 +779,53 @@ class DataStreamSummaryModel:
     timezone: str
     lockStatus: Optional[LockStatusModel]
     appKey: Optional[str]
-    start: Optional[datetime]
-    end: Optional[datetime]
-    created: datetime
-    lastUpdated: datetime
+    start: Optional[int]
+    end: Optional[int]
+    created: int
+    lastUpdated: int
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def start_datetime(self) -> Optional[datetime]:
+        if self.start is not None:
+            return datetime.fromtimestamp(self.start / 1000.0)
+        else:
+            return None
+
+    def end_datetime(self) -> Optional[datetime]:
+        if self.end is not None:
+            return datetime.fromtimestamp(self.end / 1000.0)
+        else:
+            return None
+
 
 @dataclass
 class DataStreamDetailsModel:
     key: str
     dataStream: DataStreamModel
     lockStatus: Optional[LockStatusModel]
-    startTime: Optional[datetime]
-    endTime: Optional[datetime]
-    lastUpdated: datetime
+    startTime: Optional[int]
+    endTime: Optional[int]
+    lastUpdated: int
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def start_datetime(self) -> Optional[datetime]:
+        if self.startTime is not None:
+            return datetime.fromtimestamp(self.startTime / 1000.0)
+        else:
+            return None
+
+    def end_datetime(self) -> Optional[datetime]:
+        if self.endTime is not None:
+            return datetime.fromtimestamp(self.endTime / 1000.0)
+        else:
+            return None
 
 class DataStreamBlobMetadataModel:
     dataStreamKey: str
@@ -661,9 +849,15 @@ class DataStreamRecordsBlobMetadataModel(DataStreamBlobMetadataModel):
     version: int
     size: int
     dataFormat: str
-    start: datetime
-    end: datetime
+    start: int
+    end: int
     nRecords: int
+
+    def start_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.start / 1000.0)
+
+    def end_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.end / 1000.0)
 
 @dataclass
 class DataStreamBlobSummaryModel(DataStreamBlobMetadataModel):
@@ -674,13 +868,25 @@ class DataStreamBlobSummaryModel(DataStreamBlobMetadataModel):
 @dataclass
 class DataStreamFilterModel:
     accounts: list[str] = None
-    start: Optional[datetime] = None
-    finish: Optional[datetime] = None
+    start: Optional[int] = None
+    finish: Optional[int] = None
     name: Optional[str] = None
     sourceIdentifier: Optional[str] = None
     sourceCategory: Optional[str] = None
     acqConvs: Optional[list[str]] = None
     coordConvs: Optional[list[str]] = None
+
+    def start_datetime(self) -> Optional[datetime]:
+        if self.start is not None:
+            return datetime.fromtimestamp(self.start / 1000.0)
+        else:
+            return None
+
+    def finish_datetime(self) -> Optional[datetime]:
+        if self.finish is not None:
+            return datetime.fromtimestamp(self.finish / 1000.0)
+        else:
+            return None
 
 @dataclass
 class SDTValidRangeModel:
@@ -716,8 +922,11 @@ class FolioSetModel:
     description: str
     accountKey: str
     owner: str
-    created: datetime
+    created: int
     appKey: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
 
 @dataclass
 class FolioSetDetailsModel:
@@ -726,9 +935,15 @@ class FolioSetDetailsModel:
     description: str
     accountKey: str
     owner: str
-    created: datetime
-    lastUpdated: datetime
+    created: int
+    lastUpdated: int
     appKey: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class FolioStreamModel:
@@ -742,17 +957,26 @@ class FolioStreamModel:
 class FolioModel:
     label: str
     description: str
-    created: datetime
+    created: int
     attrs: dict[str, AttributeModel]
     streams: dict[str, FolioStreamModel]
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
 
 @dataclass
 class FolioSummaryModel:
     key: str
     label: str
     description: str
-    created: datetime
-    lastUpdated: datetime
+    created: int
+    lastUpdated: int
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class FolioDetailsModel:
@@ -760,10 +984,16 @@ class FolioDetailsModel:
     fsKey: str
     label: str
     description: str
-    created: datetime
+    created: int
     attrs: dict[str, AttributeModel]
     streams: dict[str, FolioStreamModel]
-    lastUpdated: datetime
+    lastUpdated: int
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class SensorModel:
@@ -802,11 +1032,14 @@ class ActivityModel:
     sourceCategory: str
     sourceName: str
     acqConv: str
-    created: datetime
+    created: int
     datum: str
     timezone: str
     sensors: list[SensorModel]
     attrs: dict[str, AttributeValueModel]
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
 
 @dataclass
 class ActivitySummaryModel:
@@ -820,11 +1053,26 @@ class ActivitySummaryModel:
     sourceCategory: str
     sourceName: str
     acqConv: str
-    created: datetime
+    created: int
     timezone: str
-    start: Optional[datetime]
-    end: Optional[datetime]
+    start: Optional[int]
+    end: Optional[int]
     lockStatus: Optional[LockStatusModel] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def start_datetime(self) -> Optional[datetime]:
+        if self.start is not None:
+            return datetime.fromtimestamp(self.start / 1000.0)
+        else:
+            return None
+
+    def end_datetime(self) -> Optional[datetime]:
+        if self.end is not None:
+            return datetime.fromtimestamp(self.end / 1000.0)
+        else:
+            return None
 
 @dataclass
 class ActivitySearchFilterModel:
@@ -851,8 +1099,11 @@ class ActivityShareInfoModel:
     accountName: str
     displayName: Optional[str]
     kind: str
-    authorised: datetime
+    authorised: int
     rules: Optional[str]
+
+    def authorised_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.authorised / 1000.0)
 
 @dataclass
 class ActivityDetailsModel:
@@ -863,10 +1114,17 @@ class ActivityDetailsModel:
 
 class ActivityBlockStatisticsModel:
     nRecords: int
-    startTime: datetime
-    finishTime: datetime
+    startTime: int
+    finishTime: int
     statistics: dict[str, VariableStatisticsModel]
     geoExtent: Optional[GeoExtentModel]
+
+    def start_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.startTime / 1000.0)
+
+    def finish_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.finishTime / 1000.0)
+
 
 @dataclass
 class DataFilterModel:
@@ -902,11 +1160,14 @@ class LastSensorValueModel:
 class LastActivityStatisticsModel:
     activity: ActivitySummaryModel
     metadata: dict[str, ActivityVariableMetadataModel]
-    timeUtc: datetime
+    timeUtc: int
     latitude: float
     longitude: float
     altitude: float
     sensors: dict[str, LastSensorValueModel]
+
+    def time_utc_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.timeUtc / 1000.0)
 
 @dataclass
 class LastActivitiesModel:
@@ -914,23 +1175,35 @@ class LastActivitiesModel:
 
 @dataclass
 class ActivityIntervalModel:
-    start: datetime
-    end: datetime
+    start: int
+    end: int
+
+    def start_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.start / 1000.0)
+
+    def end_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.end / 1000.0)
 
 @dataclass
 class TrackRecordsMapModel(dict[str, list[Optional[float]]]):
-    timeUtc: list[datetime]
+    timeUtc: list[int]
     latitude: list[float]
     longitude: list[float]
     altitude: list[float]
     sensorExample1: list[Optional[float]]
     sensorExample2: list[Optional[float]]
 
+    def time_utc_datetime(self) -> list[datetime]:
+        return [datetime.fromtimestamp(t / 1000.0) for t in self.timeUtc]
+
 @dataclass
 class SiteRecordsMapModel(dict[str, list[Optional[float]]]):
-    timeUtc: list[datetime]
+    timeUtc: list[int]
     sensorExample1: list[Optional[float]]
     sensorExample2: list[Optional[float]]
+
+    def time_utc_datetime(self) -> list[datetime]:
+        return [datetime.fromtimestamp(t / 1000.0) for t in self.timeUtc]
 
 class ActivityRecordsModel:
     records: dict[str, list[Optional[SensorValueModel]]]
@@ -965,10 +1238,13 @@ class UpdateTrackActivityModel:
 @dataclass
 class ActivityTrackMarkerModel:
     distance: float
-    timeUtc: datetime
+    timeUtc: int
     latitude: float
     longitude: float
     altitude: float
+
+    def time_utc_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.timeUtc / 1000.0)
 
 @dataclass
 class ActivityTrackMetricsModel:
@@ -987,8 +1263,8 @@ class TrackMetricStatisticsModel:
 @dataclass
 class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
-    startTime: datetime
-    finishTime: datetime
+    startTime: int
+    finishTime: int
     statistics: dict[str, VariableStatisticsModel]
     geoExtent: Optional[GeoExtentModel]
     distance: float
@@ -996,11 +1272,23 @@ class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
     descent: float
     displacement: float
 
+    def start_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.startTime / 1000.0)
+
+    def finish_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.finishTime / 1000.0)
+
 @dataclass
 class ActivityTrackDateTimeIntervalStatisticsModel:
-    startInterval: datetime
-    finishInterval: datetime
+    startInterval: int
+    finishInterval: int
     blockStats: ActivityTrackBlockStatisticsModel
+
+    def start_interval_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.startInterval / 1000.0)
+
+    def finish_interval_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.finishInterval / 1000.0)
 
 @dataclass
 class ActivityTrackDistanceIntervalStatisticsModel:
@@ -1037,16 +1325,28 @@ class TrackActivityModel:
 @dataclass
 class ActivitySiteBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
-    startTime: datetime
-    finishTime: datetime
+    startTime: int
+    finishTime: int
     statistics: dict[str, VariableStatisticsModel]
     geoExtent: Optional[GeoExtentModel]
 
+    def start_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.startTime / 1000.0)
+
+    def finish_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.finishTime / 1000.0)
+
 @dataclass
 class ActivitySiteDateTimeIntervalStatisticsModel:
-    startInterval: datetime
-    finishInterval: datetime
+    startInterval: int
+    finishInterval: int
     blockStats: ActivitySiteBlockStatisticsModel
+
+    def start_interval_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.startInterval / 1000.0)
+
+    def finish_interval_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.finishInterval / 1000.0)
 
 @dataclass
 class SiteIntervalStatisticsModel:
@@ -1159,9 +1459,12 @@ class UploadMetadataModel:
     mimeType: str
     nature: str
     attributes: dict[str, AttributeValueModel]
-    lastUpdated: datetime
+    lastUpdated: int
     processingKey: Optional[str] = None
     infoMessage: Optional[str] = None
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class UploadMetadataChangeCommandModel:
@@ -1190,8 +1493,14 @@ class AuthenticationSessionModel:
     apiPath: str
     openApiUrl: str
     requestedVersion: str
-    requestedVersionExpiryDate: Optional[datetime]
+    requestedVersionExpiryDate: Optional[int]
     masterData: Optional[MasterDataModel] = None
+
+    def requested_version_expiry_datetime(self) -> Optional[datetime]:
+        if self.requestedVersionExpiryDate:
+            return datetime.fromtimestamp(self.requestedVersionExpiryDate / 1000.0)
+        else:
+            return None
 
 @dataclass
 class APICapabilitiesRequestModel:
@@ -1206,7 +1515,7 @@ class APICapabilitiesModel:
     apiPath: str
     openApiUrl: str
     requestedVersion: str
-    requestedVersionExpiryDate: Optional[datetime] = None
+    requestedVersionExpiryDate: Optional[int] = None
     masterData: Optional[MasterDataModel] = None
 
     def __post_init__(self):
@@ -1214,6 +1523,12 @@ class APICapabilitiesModel:
             self.requestedVersionExpiryDate = self.requestedVersionExpiryDate.isoformat() if isinstance(self.requestedVersionExpiryDate, datetime) else self.requestedVersionExpiryDate
         if self.masterData:
             self.masterData = MasterDataModel(**self.masterData) if isinstance(self.masterData, dict) else self.masterData
+
+    def requested_version_expiry_datetime(self) -> Optional[datetime]:
+        if self.requestedVersionExpiryDate:
+            return datetime.fromtimestamp(self.requestedVersionExpiryDate / 1000.0)
+        else:
+            return None
 
 @dataclass
 class StatusMessageModel:
