@@ -51,6 +51,9 @@ def read_obs(filepath, only_after: datetime = None) -> pd.DataFrame:
 def to_station_id(name):
     return name.lower().replace(' ', '_').replace('/', '_').replace('.', '').replace('_aws', '')
 
+def extract_file_date(filename: str) -> date:
+    return datetime.strptime(filename[-10:-4], '%Y%m').date()
+
 def build_numeric_sensor(i) -> SensorModel:
     name = OBSERVATION_ATTRS['names'][i]
     label = OBSERVATION_ATTRS['labels'][i]
@@ -111,14 +114,20 @@ def build_site_records(obs, only_after=None) -> dict[str, list[int | float]]:
 
 
 def main():
+    base_url = config['BASE_URL']
+    dev_key = config['DEV_KEY']
+    dev_secret = config['DEV_SECRET']
+    api_key = config['API_KEY']
+    account_key = config['ACCOUNT']
+    root_dir = config['ROOT_DIR']
+
+
     # Establish a session with inMotion
-    client = InMotionAPIKeyClient(config['BASE_URL'], config['DEV_KEY'], config['DEV_SECRET'], config['API_KEY'])
-    session = client.get_session(config['ACCOUNT'])
-    # activities = api.load_site_activities(session)
-    # print(json.dumps(activities, indent=4))
+    client = InMotionAPIKeyClient(base_url, dev_key, dev_secret, api_key)
+    session = client.get_session(account_key)
 
     # Load the stations
-    stations = read_stations(config['ROOT_DIR'] + '/stations_db.txt')
+    stations = read_stations(root_dir + '/stations_db.txt')
     for st in stations.iterrows():
         row = st[0]
         station = st[1]
@@ -132,7 +141,7 @@ def main():
 
         # Create the site activity and retain the uuid for the site
         site_location = build_site_location(station)
-        activity = build_site_activity(config['ACCOUNT'], source_id, source_name, station)
+        activity = build_site_activity(account_key, source_id, source_name, station)
         only_after = None
 
         ## Check if the site already exists, if not then create it, else get the last date
@@ -145,26 +154,26 @@ def main():
             only_after = r.activities[0].activity.end_datetime()
             site_key = r.activities[0].activity.key
         else:
+            # Doesn't exist, so create it
             r = session.activities().create_site_activity(CreateSiteActivityModel(activity, site_location, 86400 * 1000))
             site_key = r.key
 
 
         # Now process the data files for the station
-        station_dir = config['ROOT_DIR'] + '/' + state + '/' + source_id
+        station_dir = root_dir+ '/' + state + '/' + source_id
         if not os.path.isdir(station_dir):
-            station_dir = config['ROOT_DIR'] + '/' + state + '/' + DIR_MAPPINGS[source_id]
+            station_dir = root_dir + '/' + state + '/' + DIR_MAPPINGS[source_id]
             if not os.path.isdir(station_dir):
                 print('ERROR: Cannot locate ' + source_id + ' in the ' + state + ' folder')
 
         list_dir = os.listdir(station_dir)
         list_dir = [f for f in list_dir if f.endswith('.csv')]
         for f in sorted(list_dir):
-            date_str = f[-10:-4]
-            file_date = datetime.strptime(date_str, '%Y%m').date()
-            if only_after is not None:
-                if (file_date < date(year=only_after.year, month=only_after.month, day=1)):
-                    # Already processed this file in full.
-                    continue
+
+            # Extract the date from the file name and if it is before the only_after date, then skip
+            file_date = extract_file_date(f)
+            if only_after is not None and file_date < date(year=only_after.year, month=only_after.month, day=1):
+                continue
 
             # Read the observations from the file
             obs = read_obs(station_dir + '/' + f, only_after)
@@ -173,10 +182,11 @@ def main():
             num_valid_records = len(obs['date'])
             if num_valid_records == 0:
                 continue
-            else:
-                print(' ... ' + str(num_valid_records) + ' records for date period: ' + str(file_date))
-                records = build_site_records(obs, only_after)
-                session.activities().publish_site_records(site_key, records)
+
+            # Build the records and publish them
+            records = build_site_records(obs, only_after)
+            print(' ... ' + str(num_valid_records) + ' records for date period: ' + str(file_date))
+            session.activities().publish_site_records(site_key, records)
 
 # ***** MAIN *****
 
