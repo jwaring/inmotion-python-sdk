@@ -8,14 +8,13 @@ import pandas as pd
 from inmotion.apikey_client import InMotionAPIKeyClient
 from inmotion.models import *
 
-config = dotenv_values(".env.bom")
-
 # Handle know errors in directory names vs station ids.
 DIR_MAPPINGS = {
     'port_maquarie_(port_macquarie_airport_aw': 'port_maquarie_(port_macquarie_airport_aw)'
 }
 
-
+# A map containing the attributes of the observation data that are associated with the named columns
+# extracted from the BoM CSV files.
 OBSERVATION_ATTRS = {
     "names": ["stationName", "date", "evapoTranspiration", "rainfall", "panEvaporation", "maxAirTemperature", "minAirTemperature", "maxAirHumidity", "minAirHumidity", "windSpeed", "solarRadiation"],
     "labels": ["Station Name", "Date", "Evapo-transpiration", "Rainfall", "Pan Evaporation", "Maximum Air Temperature", "Minimum Air Temperature", "Maximum Relative Humidity",
@@ -25,6 +24,14 @@ OBSERVATION_ATTRS = {
     "units": [None, None, "mm/day", "mm/day", "mm/day", "degC", "degC", "%", "%", "m/s", "MJ/m^2"]
 }
 
+def to_millis(dt: datetime) -> int:
+    return int(dt.timestamp() * 1000)
+
+def to_float(v) -> float:
+    if v.strip():
+        return float(v)
+    else:
+        return float(0.0)
 
 def read_stations(filepath):
     """ Read the station data into a data frame from the BoM database """
@@ -49,12 +56,15 @@ def read_obs(filepath, only_after: datetime = None) -> pd.DataFrame:
 
 
 def to_station_id(name):
+    """ Convert a station name to a unique station id"""
     return name.lower().replace(' ', '_').replace('/', '_').replace('.', '').replace('_aws', '')
 
 def extract_file_date(filename: str) -> date:
+    """ Extract the date from the filename, which is in the format obs_<station>_YYYYMM.csv """
     return datetime.strptime(filename[-10:-4], '%Y%m').date()
 
 def build_numeric_sensor(i) -> SensorModel:
+    """ Build a inMotion numeric sensor from the observation attributes """
     name = OBSERVATION_ATTRS['names'][i]
     label = OBSERVATION_ATTRS['labels'][i]
     sdt = OBSERVATION_ATTRS['standard_names'][i]
@@ -63,14 +73,17 @@ def build_numeric_sensor(i) -> SensorModel:
 
 
 def build_sensor_list() -> list[SensorModel]:
+    """ Build the list of inMotion sensors from the observation attributes """
     return [build_numeric_sensor(i) for i in range(2, len(OBSERVATION_ATTRS['names']))]
 
 
 def build_site_location(station) -> ActivityLocationModel:
+    """ Build the inMotion site location from the station data """
     return ActivityLocationModel(latitude=station['latitude'], longitude=station['longitude'], altitude=0.0)
 
 
 def build_site_activity(account_uuid, source_id, source_name, station) -> ActivityModel:
+    """ Build the inMotion site activity from the station data """
     return ActivityModel(
         account=account_uuid,
         actType=CoordinateConvention.SITE,
@@ -94,15 +107,10 @@ def build_site_activity(account_uuid, source_id, source_name, station) -> Activi
         }
     )
 
-def to_float(v) -> float:
-    if v.strip():
-        return float(v)
-    else:
-        return float(0.0)
-
-def build_site_records(obs, only_after=None) -> dict[str, list[int | float]]:
+def build_site_records(obs) -> dict[str, list[int | float]]:
+    """ Build the inMotion site records from the observation data frame """
     records: dict[str, list[int | float]] = {
-        'timeUtc': [int(d.timestamp() * 1000) for d in obs['date']]
+        'timeUtc': [to_millis(d) for d in obs['date']]
     }
 
     for i in range(2, len(obs.columns)):
@@ -114,6 +122,10 @@ def build_site_records(obs, only_after=None) -> dict[str, list[int | float]]:
 
 
 def main():
+    """ Main processing function """
+
+    # Load the configuration from the .env file
+    config = dotenv_values(".env.stations")
     base_url = config['BASE_URL']
     dev_key = config['DEV_KEY']
     dev_secret = config['DEV_SECRET']
@@ -181,7 +193,7 @@ def main():
                 continue
 
             # Build the records and publish them
-            records = build_site_records(obs, only_after)
+            records = build_site_records(obs)
             print(' Adding ' + str(num_valid_records) + ' records to ' + source_name + ' for date period: ' + str(file_date))
             session.activities().publish_site_records(site_key, records)
 
