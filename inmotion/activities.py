@@ -77,6 +77,24 @@ class InMotionActivitiesImpl(InMotionActivities):
 
         return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
 
+    def find_track_activity(self, track_key: str) -> TrackActivityDetails:
+        r = requests.post(f"{self._prefix_path}/activity/track/{track_key}",
+                          headers=self._session.build_headers(content=''))
+        if r.status_code != 200:
+            raise Exception('Failed to retrieve track activity')
+
+        return marshmallow_dataclass.class_schema(TrackActivityDetails)().load(r.json())
+
+    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecords:
+        start_millis = int(start_time.timestamp() * 1000) if start_time else 0
+        end_millis = int(end_time.timestamp() * 1000) if end_time else 0
+        r = requests.post(f"{self._prefix_path}/activity/track/records/{track_key}/{start_millis}/{end_millis}",
+                          headers=self._session.build_headers(content=''))
+        if r.status_code != 200:
+            raise Exception('Failed to retrieve track records')
+
+        return marshmallow_dataclass.class_schema(TrackRecords)().load(r.json())
+
     def publish_track_records(self, track_key: str, records: dict) -> ActivityUpdateResponseModel:
         """ Publish a set of site records to inmotion """
         record_data = stringify(records)
@@ -117,6 +135,24 @@ class InMotionActivitiesImpl(InMotionActivities):
             raise Exception('Failed to update site activity')
 
         return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
+
+    def find_site_activity(self, site_key: str) -> ActivityDetails:
+        r = requests.post(f"{self._prefix_path}/activity/site/{site_key}",
+                          headers=self._session.build_headers(content=''))
+        if r.status_code != 200:
+            raise Exception('Failed to retrieve site activity')
+
+        return marshmallow_dataclass.class_schema(ActivityDetails)().load(r.json())
+
+    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecords:
+        start_millis = int(start_time.timestamp() * 1000) if start_time else 0
+        end_millis = int(end_time.timestamp() * 1000) if end_time else 0
+        r = requests.post(f"{self._prefix_path}/activity/site/records/{site_key}/{start_millis}/{end_millis}",
+                          headers=self._session.build_headers(content=''))
+        if r.status_code != 200:
+            raise Exception('Failed to retrieve site records')
+
+        return marshmallow_dataclass.class_schema(SiteRecords)().load(r.json())
 
     def publish_site_records(self, site_key: str, records: dict) -> ActivityUpdateResponseModel:
         """ Publish a set of site records to inmotion """

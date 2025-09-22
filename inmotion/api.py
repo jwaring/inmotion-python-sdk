@@ -57,15 +57,27 @@ class InMotionActivities(ABC):
         """
         pass
 
-#    @abstractmethod
-#    def find_track_activity(self, track_key: str) -> TrackActivityDetails:
-#        """ Retrieve the details for the requested inMotion track """
-#        pass
+    @abstractmethod
+    def find_track_activity(self, track_key: str) -> TrackActivityDetails:
+        """ Retrieve the details for the requested inMotion track
 
-#    @abstractmethod
-#    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecords:
-#        """ Retrieve records from inMotion within the requested time-period"""
-#        pass
+        :param str track_key: The unique key of the track activity to retrieve
+        :return: The details of the track activity
+        :rtype: TrackActivityDetails
+        """
+        pass
+
+    @abstractmethod
+    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecords:
+        """ Retrieve records from inMotion within the requested time-period
+
+        :param str track_key: The unique key of the track activity to retrieve records from
+        :param Optional[datetime] start_time: The start of the time range (inclusive)
+        :param Optional[datetime] end_time: The end of the time range (inclusive)
+        :return: The records for the track activity within the specified time range
+        :rtype: TrackRecords
+        """
+        pass
 
     @abstractmethod
     def publish_track_records(self, track_key: str, records: dict[str, list[int | float]]):
@@ -99,15 +111,28 @@ class InMotionActivities(ABC):
         """
         pass
 
-#    @abstractmethod
-#    def find_site_activity(self, site_key: str) -> ActivityDetails:
-#        """ Retrieve the details for the requested inMotion site """
-#        pass
+    @abstractmethod
+    def find_site_activity(self, site_key: str) -> ActivityDetails:
+        """ Retrieve the details for the requested inMotion site
 
-#    @abstractmethod
-#    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecords:
-#        """ Retrieve records from inMotion within the requested time-period"""
-#        pass
+        :param str site_key: The unique key of the site activity to retrieve
+        :return: The details of the site activity
+        :rtype: ActivityDetails
+
+        """
+        pass
+
+    @abstractmethod
+    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecords:
+        """ Retrieve records from inMotion within the requested time-period
+
+        :param str site_key: The unique key of the site activity to retrieve records from
+        :param Optional[datetime] start_time: The start of the time range (inclusive)
+        :param Optional[datetime] end_time: The end of the time range (inclusive)
+        :return: The records for the site activity within the specified time range
+        :rtype: SiteRecords
+        """
+        pass
 
     @abstractmethod
     def publish_site_records(self, site_key: str, records: dict[str, list[int | float]]):
