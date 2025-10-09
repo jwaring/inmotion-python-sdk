@@ -1,6 +1,7 @@
 import os
 
 from datetime import date
+import time
 
 from dotenv import dotenv_values
 import pandas as pd
@@ -160,6 +161,7 @@ def main():
             coordConvs=[CoordinateConvention.SITE],
             categoryFilter='Site/Weather'
         ))
+
         if r and len(r.activities) > 0:
             only_after = r.activities[0].activity.end_datetime()
             site_key = r.activities[0].activity.key
@@ -196,6 +198,7 @@ def main():
             records = build_site_records(obs)
             print(' Adding ' + str(num_valid_records) + ' records to ' + source_name + ' for date period: ' + str(file_date))
             session.activities().publish_site_records(site_key, records)
+            time.sleep(0.1)
 
 # ***** MAIN *****
 

@@ -58,7 +58,7 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def find_track_activity(self, track_key: str) -> TrackActivityDetails:
+    def find_track_activity(self, track_key: str) -> TrackActivityModel:
         """ Retrieve the details for the requested inMotion track
 
         :param str track_key: The unique key of the track activity to retrieve
@@ -68,7 +68,7 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecords:
+    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecordsModel:
         """ Retrieve records from inMotion within the requested time-period
 
         :param str track_key: The unique key of the track activity to retrieve records from
@@ -112,18 +112,18 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def find_site_activity(self, site_key: str) -> ActivityDetails:
+    def find_site_activity(self, site_key: str) -> SiteActivityModel:
         """ Retrieve the details for the requested inMotion site
 
         :param str site_key: The unique key of the site activity to retrieve
         :return: The details of the site activity
-        :rtype: ActivityDetails
+        :rtype: SiteActivityModel
 
         """
         pass
 
     @abstractmethod
-    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecords:
+    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecordsModel:
         """ Retrieve records from inMotion within the requested time-period
 
         :param str site_key: The unique key of the site activity to retrieve records from

@@ -59,6 +59,7 @@ class InMotionAPIKeyClient(object):
         self._api_version = kwargs.pop('api_version', INMOTION_API_VERSION)
 
     def get_session(self, account: str) -> InMotionAPIKeySession:
+        
         """
          Validate connectivity and extract tha API path by using the capabilities endpoint.
         """
@@ -66,19 +67,22 @@ class InMotionAPIKeyClient(object):
             'requiredApiVersion': self._api_version,
             'withMasterData': True
         })
-        r = requests.post(self._base_url + "/api/latest/authenticate/capabilities",
-                          headers=build_im_headers(
-                              dev_key=self._dev_key,
-                              dev_secret=self._dev_secret,
-                              content=capabilitiesRequired,
-                              extra_name='X-API-KEY',
-                              extra_value=self._api_key,
-                          ),
-                          data=capabilitiesRequired)
+        try:
+            r = requests.post(self._base_url + "/api/latest/authenticate/capabilities",
+                            headers=build_im_headers(
+                                dev_key=self._dev_key,
+                                dev_secret=self._dev_secret,
+                                content=capabilitiesRequired,
+                                extra_name='X-API-KEY',
+                                extra_value=self._api_key,
+                            ),
+                            data=capabilitiesRequired)
+        except Exception as e:
+            raise Exception('Failed to connect to inMotion') from e
 
         if r.status_code != 200:
-            raise Exception('Failed to authenticate to inMotion')
-
+            raise Exception(f'Failed to authenticate to inMotion at {self._base_url} with code {r.status_code}')
+        
         try:
             capabilities = APICapabilitiesModel(**r.json())
             match capabilities.status:
