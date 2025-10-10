@@ -156,6 +156,8 @@ def main():
         only_after = None
 
         ## Check if the site already exists, if not then create it, else get the last date
+        time.sleep(0.01)  # Avoid overwhelming the server
+
         r = session.activities().find_activities(ActivitySearchFilterModel(
             nameFilter=source_name,
             coordConvs=[CoordinateConvention.SITE],
@@ -198,7 +200,6 @@ def main():
             records = build_site_records(obs)
             print(' Adding ' + str(num_valid_records) + ' records to ' + source_name + ' for date period: ' + str(file_date))
             session.activities().publish_site_records(site_key, records)
-            time.sleep(0.1)
 
 # ***** MAIN *****
 
