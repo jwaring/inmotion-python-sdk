@@ -39,9 +39,9 @@ class InMotionActivitiesImpl(InMotionActivities):
 
         return marshmallow_dataclass.class_schema(ActivitiesModel)().load(r.json())
 
-    def find_latest_activity_stats(self, since: datetime, max_records = 5) -> LastActivitiesModel:
+    def find_latest_activity_stats(self, since: datetime) -> LastActivitiesModel:
         since_millis = int(since.timestamp() * 1000)
-        postfix_path = f"activities/latest/{self._session.account}/{since_millis}/{max_records}"
+        postfix_path = f"activities/latest/{self._session.account}/{since_millis}"
         r = requests.post(f"{self._prefix_path}/{postfix_path}",
                           headers=self._session.build_headers(content=''))
         if r.status_code != 200:
