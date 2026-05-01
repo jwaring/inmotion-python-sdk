@@ -6,6 +6,5 @@ __pycache__
 .python-version
 out
 dist
-uv.lock
 /inmotion-python-sdk.iml
 /examples/bom.py
