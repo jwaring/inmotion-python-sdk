@@ -19,7 +19,7 @@ jobs:
 
       - name: Extract versions
         run: |
-          SDK_VERSION=`grep 'version =' pyproject.toml | cut -d = -f 3 | tr -d '[ "]'`
+          SDK_VERSION=`grep 'version =' pyproject.toml | cut -d = -f 2 | tr -d '[ "]'`
           echo "SDK_VERSION=$API_VERSION" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
