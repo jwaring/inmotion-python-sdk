@@ -1,0 +1,25 @@
+services:
+  process_stations:
+    image: "ghcr.io/jwaring/inmotion-python-sdk:latest"
+    environment:
+      ROOT_DIR: "/bom"
+      DEV_KEY: "***"
+      DEV_SECRET: "***"
+      API_KEY: "***"
+      ACCOUNT: "***"
+      BASE_URL: "https://app.inmotion.io"
+    volumes:
+      - bom_data:/bom
+    networks:
+      - app-network
+
+volumes:
+  bom_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /share/Data/bom/climate_data/tables
+      o: bind
+
+networks:
+  app-network:
