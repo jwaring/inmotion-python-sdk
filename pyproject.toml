@@ -4,17 +4,18 @@ build-backend = "hatchling.build"
 
 [project]
 name = "inmotion"
-version = "0.2.1"
+version = "0.2.2"
 description = "An SDK for integrating with inMotion API"
 authors = [{ name = "Jason Waring", email = "jason@softwaringsolutions.com" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.13"
 dependencies = [
           "numpy",
           "pycryptodome",
           "python-dotenv",
           "pandas",
+          "urllib3",
           "requests",
           "marshmallow",
           "marshmallow_dataclass"]
