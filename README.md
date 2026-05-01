@@ -61,7 +61,7 @@ Please run the importation example in a virtual environment using the commands b
 ```bash
 source .venv/bin/activate
 uv pip install -e .
-python3 eexamples/process_stations.py
+python3 examples/process_stations.py
 ```
 
 Finally
