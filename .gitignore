@@ -5,6 +5,7 @@ __pycache__
 .idea
 .python-version
 out
+output
 dist
 uv.lock
 /inmotion-python-sdk.iml
