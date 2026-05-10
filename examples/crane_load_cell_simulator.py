@@ -4,21 +4,33 @@ Crane Load Cell Simulator
 
 Generates realistic 10Hz time-series load cell data for a stationary crane
 performing container loading operations. Saves raw data to Parquet format
-and streams windowed statistics to inMotion in real-time simulation
-mode (computes all data upfront, then uploads incrementally with delays).
+and streams 1Hz samples with rolling statistics to inMotion in real-time
+simulation mode.
+
+Data Structure:
+- Raw: 10Hz voltage measurements (36,000 samples for 1 hour)
+- Processed: 1Hz samples (3,600 samples) with:
+  * Sensed: Instantaneous load (averaged from 10Hz)
+  * Derived: Overload duration in that second
+  * Rolling stats: Mean/max/min/std/p95 over preceding window (e.g., 1 hour)
+- Upload: Batched (e.g., 15 samples every 15 seconds) to simulate real-time
 
 Usage:
-    # Generate and stream to inMotion with 60-second windows (default)
-    python crane_load_cell_simulator.py --config .env.crane
+    # Generate and stream with default settings (1-hour rolling window, 15s batches)
+    python crane_load_cell_simulator.py
     
-    # Use 30-second windows with matching delays
-    python crane_load_cell_simulator.py --config .env.crane --window 30
+    # Use 30-minute rolling window
+    python crane_load_cell_simulator.py --rolling-window 1800
     
-    # Fast upload without delays (testing)
-    python crane_load_cell_simulator.py --config .env.crane --delay 0
+    # Fast upload: larger batches with no delay (testing)
+    python crane_load_cell_simulator.py --upload-interval 60 --delay 0
     
     # Generate only, no upload
     python crane_load_cell_simulator.py --skip-upload
+    
+    # Run parallel instances with different working directories
+    python crane_load_cell_simulator.py --working-dir ~/crane1
+    python crane_load_cell_simulator.py --working-dir ~/crane2
 """
 
 import argparse
@@ -45,7 +57,7 @@ from inmotion.models import (
 
 # Configuration constants
 SAMPLE_RATE_HZ = 10
-DURATION_SECONDS = 3600  # 1 hour
+DURATION_SECONDS = 7200  # 2 hours
 IDLE_LOAD_KG = 0.0
 TYPICAL_LOAD_KG = 100_000
 MAX_SAFE_LOAD_KG = 500_000
@@ -236,7 +248,7 @@ def generate_crane_load_data(
             break
         
         # Randomly decide load type and characteristics
-        is_overload = np.random.random() < 0.02
+        is_overload = np.random.random() < 0.10
         if is_overload:
             target_load_kg = MAX_SAFE_LOAD_KG * np.random.uniform(1.05, 1.15)
         else:
@@ -424,6 +436,103 @@ def calculate_window_statistics(
     return stats
 
 
+def calculate_rolling_statistics(
+    df: pd.DataFrame,
+    sample_interval_sec: int = 1,
+    rolling_window_sec: int = 3600,
+    threshold_kg: float = MAX_SAFE_LOAD_KG,
+    calibration_mv_per_1000kg: float = DEFAULT_CALIBRATION_MV_PER_1000KG
+) -> pd.DataFrame:
+    """
+    Calculate 1Hz instantaneous samples with rolling window statistics.
+    
+    For each second:
+    - Sensed: Instantaneous load (average of 10Hz samples in that second)
+    - Derived: Overload duration in that second
+    - Rolling stats: Mean/max/min/std/p95 over preceding window period
+    
+    Args:
+        df: Raw voltage data with timestamp_ms and voltage_mv columns (10Hz)
+        sample_interval_sec: Output sample interval in seconds (default: 1)
+        rolling_window_sec: Rolling window size for statistics in seconds (default: 3600 = 1 hour)
+        threshold_kg: Threshold in kg for overload detection
+        calibration_mv_per_1000kg: Load cell calibration factor
+        
+    Returns:
+        DataFrame with 1Hz samples including instantaneous and rolling statistics in Newtons
+    """
+    # Convert voltage to load in kg
+    df = df.copy()
+    df['load_kg'] = voltage_to_kg(df['voltage_mv'], calibration_mv_per_1000kg)
+    
+    # Sort by timestamp
+    df = df.sort_values('timestamp_ms').reset_index(drop=True)
+    
+    # Downsample to 1Hz: average every 10 samples (10 samples per second at 10Hz)
+    samples_per_interval = SAMPLE_RATE_HZ * sample_interval_sec
+    num_intervals = len(df) // samples_per_interval
+    
+    # Create output records
+    records = []
+    GRAVITY_MS2 = 9.81
+    rolling_window_samples = rolling_window_sec * SAMPLE_RATE_HZ
+    
+    for i in range(num_intervals):
+        start_idx = i * samples_per_interval
+        end_idx = start_idx + samples_per_interval
+        
+        # Get samples for this 1-second interval
+        interval_samples = df.iloc[start_idx:end_idx]
+        
+        # Instantaneous values (sensed)
+        timestamp_ms = interval_samples['timestamp_ms'].iloc[0]  # Use start of interval
+        load_instant_kg = interval_samples['load_kg'].mean()
+        load_instant_n = load_instant_kg * GRAVITY_MS2
+        
+        # Overload duration in this interval (derived)
+        overload_samples = (interval_samples['load_kg'] > threshold_kg).sum()
+        overload_duration_sec = overload_samples / SAMPLE_RATE_HZ
+        
+        # Rolling window statistics - look back from current position
+        window_start_idx = max(0, end_idx - rolling_window_samples)
+        window_samples = df.iloc[window_start_idx:end_idx]['load_kg']
+        
+        if len(window_samples) > 0:
+            load_mean_kg = window_samples.mean()
+            load_max_kg = window_samples.max()
+            load_min_kg = window_samples.min()
+            load_std_kg = window_samples.std()
+            load_p95_kg = window_samples.quantile(0.95)
+        else:
+            # Not enough data yet
+            load_mean_kg = load_instant_kg
+            load_max_kg = load_instant_kg
+            load_min_kg = load_instant_kg
+            load_std_kg = 0.0
+            load_p95_kg = load_instant_kg
+        
+        records.append({
+            'timestamp_ms': int(timestamp_ms),
+            'load_instant': load_instant_n,
+            'overload_duration': overload_duration_sec,
+            'load_mean_rolling': load_mean_kg * GRAVITY_MS2,
+            'load_max_rolling': load_max_kg * GRAVITY_MS2,
+            'load_min_rolling': load_min_kg * GRAVITY_MS2,
+            'load_std_rolling': load_std_kg * GRAVITY_MS2,
+            'load_p95_rolling': load_p95_kg * GRAVITY_MS2,
+        })
+    
+    result = pd.DataFrame(records)
+    
+    print(f"✓ Calculated {len(result)} 1Hz samples with rolling statistics")
+    print(f"  - Sample interval: {sample_interval_sec}s")
+    print(f"  - Rolling window: {rolling_window_sec}s ({rolling_window_sec/60:.0f} minutes)")
+    print(f"  - Instantaneous load range: {result['load_instant'].min()/1000/GRAVITY_MS2:.1f} - {result['load_instant'].max()/1000/GRAVITY_MS2:.1f} tonnes")
+    print(f"  - Total overload duration: {result['overload_duration'].sum():.1f}s")
+    
+    return result
+
+
 def build_crane_activity(
     account: str,
     source_identifier: str,
@@ -441,53 +550,63 @@ def build_crane_activity(
         crane_name: Human-readable crane name
         location: Tuple of (latitude, longitude, altitude)
         start_time_ms: Activity start timestamp in milliseconds
-        window_seconds: Statistics window size in seconds
+        window_seconds: Sample interval in seconds (for recordInterval)
         
     Returns:
         CreateSiteActivityModel ready for upload
     """
     sensors = [
+        # Instantaneous sensed values (1Hz)
         SensorModel(
-            name='load_mean',
+            name='load_instant',
             kind='DOUBLE',
-            description='Mean Load',
+            description='Instantaneous Load',
             units='N',
-            standardDataType='sensed/crane-load-mean'
+            standardDataType='sensed/crane-load'
         ),
+        # Derived instantaneous values
         SensorModel(
-            name='load_max',
+            name='overload_duration',
             kind='DOUBLE',
-            description='Maximum Load',
-            units='N',
-            standardDataType='sensed/crane-load-max'
-        ),
-        SensorModel(
-            name='load_min',
-            kind='DOUBLE',
-            description='Minimum Load',
-            units='N',
-            standardDataType='sensed/crane-load-min'
-        ),
-        SensorModel(
-            name='load_std',
-            kind='DOUBLE',
-            description='Load Standard Deviation',
-            units='N',
-            standardDataType='sensed/crane-load-std'
-        ),
-        SensorModel(
-            name='load_p95',
-            kind='DOUBLE',
-            description='Load 95th Percentile',
-            units='N',
-            standardDataType='sensed/crane-load-p95'
-        ),
-        SensorModel(
-            name='time_above_threshold',
-            kind='DOUBLE',
-            description='Time Above Safe Load',
+            description='Overload Duration in Interval',
             units='s',
             standardDataType='derived/crane-overload-duration'
+        ),
+        # Rolling window statistics (derived)
+        SensorModel(
+            name='load_mean_rolling',
+            kind='DOUBLE',
+            description='Mean Load (Rolling Window)',
+            units='N',
+            standardDataType='derived/crane-load-mean'
+        ),
+        SensorModel(
+            name='load_max_rolling',
+            kind='DOUBLE',
+            description='Maximum Load (Rolling Window)',
+            units='N',
+            standardDataType='derived/crane-load-max'
+        ),
+        SensorModel(
+            name='load_min_rolling',
+            kind='DOUBLE',
+            description='Minimum Load (Rolling Window)',
+            units='N',
+            standardDataType='derived/crane-load-min'
+        ),
+        SensorModel(
+            name='load_std_rolling',
+            kind='DOUBLE',
+            description='Load Standard Deviation (Rolling Window)',
+            units='N',
+            standardDataType='derived/crane-load-std'
+        ),
+        SensorModel(
+            name='load_p95_rolling',
+            kind='DOUBLE',
+            description='Load 95th Percentile (Rolling Window)',
+            units='N',
+            standardDataType='derived/crane-load-p95'
         ),
     ]
     
@@ -498,7 +617,7 @@ def build_crane_activity(
         comment=f'Simulated load cell data for {crane_name}',
         tags=['crane', 'load-cell', 'simulation'],
         sourceIdentifier=source_identifier,
-        sourceCategory='Site/Crane',
+        sourceCategory='site/construction/crane',
         sourceName=crane_name,
         acqConv='M',  # Modelled data
         created=start_time_ms,
@@ -556,13 +675,13 @@ def get_or_create_activity(
     
     # Check if activity already exists
     search_filter = ActivitySearchFilterModel(
-        sourceIdentifierFilter=source_identifier
+        nameFilter=crane_name
     )
     
     existing = activities.find_activities(search_filter)
     
     if existing and len(existing.activities) > 0:
-        site_key = existing.activities[0].key
+        site_key = existing.activities[0].activity.key
         print(f"✓ Found existing activity: {site_key}")
     else:
         # Create new activity
@@ -582,37 +701,40 @@ def get_or_create_activity(
     return site_key, activities
 
 
-def upload_window_to_inmotion(
+def upload_batch_to_inmotion(
     site_key: str,
     activities_api: any,
-    window_df: pd.DataFrame,
-    window_num: int,
-    total_windows: int
+    batch_df: pd.DataFrame,
+    batch_num: int,
+    total_batches: int
 ) -> None:
     """
-    Upload a single 60-second window of statistics to inMotion.
+    Upload a batch of 1Hz samples to inMotion.
     
     Args:
         site_key: Activity key in inMotion
         activities_api: Activities API instance
-        window_df: Single window statistics DataFrame
-        window_num: Current window number (1-indexed)
-        total_windows: Total number of windows
+        batch_df: Batch of samples with instantaneous and rolling statistics
+        batch_num: Current batch number (1-indexed)
+        total_batches: Total number of batches
     """
     # Transform DataFrame to records dict
     records = {
-        'timeUtc': window_df['timestamp_ms'].tolist(),
-        'load_mean': window_df['load_mean'].tolist(),
-        'load_max': window_df['load_max'].tolist(),
-        'load_min': window_df['load_min'].tolist(),
-        'load_std': window_df['load_std'].tolist(),
-        'load_p95': window_df['load_p95'].tolist(),
-        'time_above_threshold': window_df['time_above_threshold'].tolist(),
+        'timeUtc': batch_df['timestamp_ms'].tolist(),
+        'load_instant': batch_df['load_instant'].tolist(),
+        'overload_duration': batch_df['overload_duration'].tolist(),
+        'load_mean_rolling': batch_df['load_mean_rolling'].tolist(),
+        'load_max_rolling': batch_df['load_max_rolling'].tolist(),
+        'load_min_rolling': batch_df['load_min_rolling'].tolist(),
+        'load_std_rolling': batch_df['load_std_rolling'].tolist(),
+        'load_p95_rolling': batch_df['load_p95_rolling'].tolist(),
     }
     
     # Upload records
     activities_api.publish_site_records(site_key, records)
-    print(f"  [{window_num}/{total_windows}] Uploaded window @ {pd.to_datetime(window_df['timestamp_ms'].iloc[0], unit='ms').strftime('%H:%M:%S')}")
+    num_records = len(batch_df)
+    time_range = f"{pd.to_datetime(batch_df['timestamp_ms'].iloc[0], unit='ms').strftime('%H:%M:%S')}-{pd.to_datetime(batch_df['timestamp_ms'].iloc[-1], unit='ms').strftime('%H:%M:%S')}"
+    print(f"  [{batch_num}/{total_batches}] Uploaded {num_records} records ({time_range})")
 
 
 def main():
@@ -620,14 +742,19 @@ def main():
         description='Simulate crane load cell data and upload to inMotion'
     )
     parser.add_argument(
+        '--working-dir',
+        default='.',
+        help='Working directory for config and outputs (default: current directory)'
+    )
+    parser.add_argument(
         '--config',
         default='.env.crane',
-        help='Configuration file path (default: .env.crane)'
+        help='Configuration file name relative to working directory (default: .env.crane)'
     )
     parser.add_argument(
         '--output-dir',
-        default='output',
-        help='Output directory for Parquet files (default: output)'
+        default=None,
+        help='Output directory for Parquet files (default: outputs/ under working directory)'
     )
     parser.add_argument(
         '--seed',
@@ -640,26 +767,37 @@ def main():
         help='Skip upload to inMotion (only generate local files)'
     )
     parser.add_argument(
-        '--window',
+        '--rolling-window',
         type=int,
-        default=60,
-        help='Statistics window size in seconds (default: 60)'
+        default=3600,
+        help='Rolling window size for statistics in seconds (default: 3600 = 1 hour)'
+    )
+    parser.add_argument(
+        '--upload-interval',
+        type=int,
+        default=15,
+        help='Upload batch interval in seconds - uploads this many 1Hz samples at once (default: 15)'
     )
     parser.add_argument(
         '--delay',
         type=float,
         default=None,
-        help='Delay in seconds between window uploads (default: matches --window, use 0 for no delay)'
+        help='Delay in seconds between batch uploads (default: matches --upload-interval, use 0 for no delay)'
     )
     
     args = parser.parse_args()
     
+    # Resolve working directory and paths
+    working_dir = Path(args.working_dir).resolve()
+    config_path = working_dir / args.config
+    output_dir = Path(args.output_dir) if args.output_dir else working_dir / 'outputs'
+    
     print("Crane Load Cell Simulator")
     print("=" * 50)
+    print(f"Working directory: {working_dir}")
     
     # Load configuration
     if not args.skip_upload:
-        config_path = Path(args.config)
         if not config_path.exists():
             print(f"✗ Configuration file not found: {config_path}")
             print(f"\nCreate {config_path} with:")
@@ -684,9 +822,10 @@ def main():
         calibration_mv_per_1000kg = float(config.get('calibration_mv_per_1000kg', DEFAULT_CALIBRATION_MV_PER_1000KG))
         print(f"  - Calibration: {calibration_mv_per_1000kg} mV/1000kg")
     
-    # Set default delay to match window size if not specified
-    upload_delay = args.delay if args.delay is not None else args.window
-    print(f"  - Window size: {args.window} seconds")
+    # Set default delay to match upload interval if not specified
+    upload_delay = args.delay if args.delay is not None else args.upload_interval
+    print(f"  - Rolling window: {args.rolling_window} seconds ({args.rolling_window/60:.0f} minutes)")
+    print(f"  - Upload interval: {args.upload_interval} seconds (batches of {args.upload_interval} 1Hz samples)")
     if not args.skip_upload:
         print(f"  - Upload delay: {upload_delay} seconds")
     
@@ -703,27 +842,27 @@ def main():
     )
     
     # Save to Parquet
-    output_dir = Path(args.output_dir)
     parquet_path = save_to_parquet(raw_df, output_dir)
     
-    # Calculate statistics
-    print(f"\nCalculating {args.window}-second window statistics...")
-    stats_df = calculate_window_statistics(
+    # Calculate 1Hz samples with rolling statistics
+    print(f"\nCalculating 1Hz samples with {args.rolling_window}s rolling statistics...")
+    samples_df = calculate_rolling_statistics(
         raw_df,
-        window_seconds=args.window,
+        sample_interval_sec=1,
+        rolling_window_sec=args.rolling_window,
         threshold_kg=MAX_SAFE_LOAD_KG,
         calibration_mv_per_1000kg=calibration_mv_per_1000kg
     )
     
-    # Optionally save statistics too
-    stats_path = parquet_path.with_name(parquet_path.stem + '_stats.parquet')
-    stats_df.to_parquet(stats_path, engine='pyarrow', compression='snappy', index=False)
-    print(f"✓ Saved statistics to {stats_path}")
+    # Save samples with statistics
+    samples_path = parquet_path.with_name(parquet_path.stem + '_samples.parquet')
+    samples_df.to_parquet(samples_path, engine='pyarrow', compression='snappy', index=False)
+    print(f"✓ Saved 1Hz samples to {samples_path}")
     
-    # Upload to inMotion (simulating real-time operation)
+    # Upload to inMotion (simulating real-time operation with batching)
     if not args.skip_upload:
         print("\n" + "=" * 50)
-        print("Streaming data to inMotion (real-time simulation)...")
+        print("Streaming data to inMotion (real-time simulation with batching)...")
         print("=" * 50)
         
         location = (
@@ -734,49 +873,54 @@ def main():
         
         # Connect and get/create activity once
         print(f"\n✓ Connected to inMotion at {config['base_url']}")
-        start_time_ms = int(stats_df['timestamp_ms'].min())
+        start_time_ms = int(samples_df['timestamp_ms'].min())
         site_key, activities_api = get_or_create_activity(
             config,
             source_identifier=config['source_identifier'],
             crane_name=config['crane_name'],
             location=location,
             start_time_ms=start_time_ms,
-            window_seconds=args.window
+            window_seconds=1  # 1Hz sampling
         )
         
-        # Upload windows incrementally with configurable delays
-        total_windows = len(stats_df)
+        # Upload samples in batches
+        batch_size = args.upload_interval  # Number of 1Hz samples per batch
+        total_samples = len(samples_df)
+        total_batches = (total_samples + batch_size - 1) // batch_size  # Ceiling division
+        
         delay_msg = f"{upload_delay:.0f}-second intervals" if upload_delay > 0 else "no delay"
-        print(f"\nUploading {total_windows} windows ({delay_msg})...")
+        print(f"\nUploading {total_samples} samples in {total_batches} batches ({delay_msg})...")
         if upload_delay > 0:
             print("Press Ctrl+C to stop early\n")
         
         try:
-            for i in range(total_windows):
-                # Get single window as DataFrame
-                window_df = stats_df.iloc[i:i+1]
+            for i in range(total_batches):
+                # Get batch of samples
+                start_idx = i * batch_size
+                end_idx = min(start_idx + batch_size, total_samples)
+                batch_df = samples_df.iloc[start_idx:end_idx]
                 
-                # Upload this window
-                upload_window_to_inmotion(
+                # Upload this batch
+                upload_batch_to_inmotion(
                     site_key,
                     activities_api,
-                    window_df,
-                    window_num=i+1,
-                    total_windows=total_windows
+                    batch_df,
+                    batch_num=i+1,
+                    total_batches=total_batches
                 )
                 
-                # Wait before next upload (except for last window)
-                if i < total_windows - 1 and upload_delay > 0:
+                # Wait before next upload (except for last batch)
+                if i < total_batches - 1 and upload_delay > 0:
                     print(f"  Waiting {upload_delay:.0f} seconds...", end='', flush=True)
                     time.sleep(upload_delay)
                     print(" done")
         
         except KeyboardInterrupt:
-            print(f"\n\n✗ Upload interrupted after {i+1} windows")
-            print(f"  {total_windows - i - 1} windows remaining")
+            print(f"\n\n✗ Upload interrupted after {i+1} batches")
+            print(f"  {total_batches - i - 1} batches remaining")
             sys.exit(0)
         
-        print(f"\n✓ Completed upload of all {total_windows} windows")
+        print(f"\n✓ Completed upload of all {total_batches} batches ({total_samples} samples)")
     
     print("\n" + "=" * 50)
     print("✓ Simulation complete!")
