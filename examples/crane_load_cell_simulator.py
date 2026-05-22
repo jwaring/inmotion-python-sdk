@@ -57,7 +57,7 @@ from inmotion.models import (
 
 # Configuration constants
 SAMPLE_RATE_HZ = 10
-DURATION_SECONDS = 7200  # 2 hours
+DURATION_SECONDS = 8*3600  # 8 hours
 IDLE_LOAD_KG = 0.0
 TYPICAL_LOAD_KG = 100_000
 MAX_SAFE_LOAD_KG = 500_000
