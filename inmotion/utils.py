@@ -1,11 +1,22 @@
 import dataclasses
 import json
 from base64 import b64encode
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import md5
+from typing import Optional, Type, TypeVar
 
+import marshmallow_dataclass
+import requests
 from Crypto.Hash import HMAC
 from Crypto.Hash import SHA1
+
+from inmotion.exceptions import InMotionAPIError, InMotionConnectionError
+
+DEFAULT_TIMEOUT_SECONDS = 30
+
+_http_session = requests.Session()
+
+T = TypeVar('T')
 
 def stringify(o):
     if dataclasses.is_dataclass(o):
@@ -20,7 +31,7 @@ def create_signature(secret_key, string) -> str:
 
 
 def build_im_headers(dev_key: str, dev_secret: str, content: str ='', extra_name: str='', extra_value: str ='') -> dict[str, str]:
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     content_md5 = md5(content.encode('utf-8')).hexdigest()
     datetime_str = now.strftime('%Y-%m-%dT%H:%M:%S')
     hmac_content = datetime_str + "\n" + content_md5
@@ -36,4 +47,29 @@ def build_im_headers(dev_key: str, dev_secret: str, content: str ='', extra_name
     return headers
 
 
+def request_json(url: str, headers: dict[str, str], data: str, error_message: str,
+                  model: Optional[Type[T]] = None, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> T:
+    try:
+        r = _http_session.post(url, headers=headers, data=data, timeout=timeout)
+    except requests.RequestException as e:
+        raise InMotionConnectionError(f"{error_message}: unable to reach inMotion") from e
+
+    if r.status_code // 100 != 2:
+        server_detail = None
+        try:
+            body = r.json()
+            if isinstance(body, dict):
+                server_detail = body.get('error') or body.get('message')
+        except ValueError:
+            pass
+        detail = f": {server_detail}" if server_detail else f" (HTTP {r.status_code})"
+        raise InMotionAPIError(f"{error_message}{detail}", status_code=r.status_code)
+
+    if model is None:
+        return r.json()
+
+    try:
+        return marshmallow_dataclass.class_schema(model)().load(r.json())
+    except Exception as e:
+        raise InMotionAPIError(f"Malformed response received from inMotion for: {error_message}") from e
 

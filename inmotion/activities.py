@@ -1,8 +1,5 @@
 from dataclasses import asdict
 
-import marshmallow_dataclass
-import requests
-
 from inmotion.api import InMotionSession, InMotionActivities
 from inmotion.models import *
 from inmotion.utils import *
@@ -17,95 +14,77 @@ class InMotionActivitiesImpl(InMotionActivities):
     def find_activities(self, act_filter: ActivitySearchFilterModel) -> ActivitiesModel:
         filter_data = stringify(act_filter)
         postfix_path = f"activities/{self._session.account}"
-        r = requests.post(f"{self._prefix_path}/{postfix_path}",
-                          headers=self._session.build_headers(content=filter_data),
-                          data=filter_data)
-        if r.status_code != 200:
-            raise Exception('Failed to retrieve activities')
-
-        return marshmallow_dataclass.class_schema(ActivitiesModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/{postfix_path}",
+                             self._session.build_headers(content=filter_data),
+                             filter_data,
+                             'Failed to retrieve activities',
+                             ActivitiesModel)
 
     def find_activities_within_time_range(self, act_filter: ActivitySearchFilterModel, start: datetime, finish: datetime) -> ActivitiesModel:
         filter_data = stringify(act_filter)
         start_millis = int(start.timestamp() * 1000)
         finish_millis = int(finish.timestamp() * 1000)
         postfix_path = f"activities/{self._session.account}/{start_millis}/{finish_millis}"
-        r = requests.post(f"{self._prefix_path}/{postfix_path}",
-                          headers=self._session.build_headers(content=filter_data),
-                          data=filter_data)
+        return request_json(f"{self._prefix_path}/{postfix_path}",
+                             self._session.build_headers(content=filter_data),
+                             filter_data,
+                             'Failed to retrieve activities',
+                             ActivitiesModel)
 
-        if r.status_code != 200:
-            raise Exception('Failed to retrieve activities')
-
-        return marshmallow_dataclass.class_schema(ActivitiesModel)().load(r.json())
-
-    def find_latest_activity_stats(self, since: datetime) -> LastActivitiesModel:
+    def find_latest_activity_stats(self, since: datetime, max_records: int) -> LastActivitiesModel:
         since_millis = int(since.timestamp() * 1000)
-        postfix_path = f"activities/latest/{self._session.account}/{since_millis}"
-        r = requests.post(f"{self._prefix_path}/{postfix_path}",
-                          headers=self._session.build_headers(content=''))
-        if r.status_code != 200:
-            raise Exception('Failed to load latest activities')
-
-        return marshmallow_dataclass.class_schema(LastActivitiesModel)().load(r.json())
+        postfix_path = f"activities/latest/{self._session.account}/{since_millis}/{max_records}"
+        return request_json(f"{self._prefix_path}/{postfix_path}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to load latest activities',
+                             LastActivitiesModel)
 
     def create_track_activity(self, ctam: CreateTrackActivityModel) -> ActivityUpdateResponseModel:
         site_data = stringify({
             "recordInterval": ctam.recordInterval,
             "activity": asdict(ctam.activity)
         })
-
-        r = requests.post(f"{self._prefix_path}/activity/track",
-                          headers=self._session.build_headers(content=site_data),
-                          data=site_data)
-        if r.status_code != 200:
-            raise Exception('Failed to create track activity')
-
-        return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
-
+        return request_json(f"{self._prefix_path}/activity/track",
+                             self._session.build_headers(content=site_data),
+                             site_data,
+                             'Failed to create track activity',
+                             ActivityUpdateResponseModel)
 
     def update_track_activity(self, track_key: str, utam: UpdateTrackActivityModel) -> ActivityUpdateResponseModel:
         track_data = stringify({
             "activity": asdict(utam.activity)
         })
-
-        r = requests.post(f"{self._prefix_path}/activity/track/{track_key}",
-                          headers=self._session.build_headers(content=track_data),
-                          data=track_data)
-        if r.status_code != 200:
-            raise Exception('Failed to update track activity')
-
-        return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/track/{track_key}",
+                             self._session.build_headers(content=track_data),
+                             track_data,
+                             'Failed to update track activity',
+                             ActivityUpdateResponseModel)
 
     def find_track_activity(self, track_key: str) -> TrackActivityModel:
-        r = requests.post(f"{self._prefix_path}/activity/track/{track_key}",
-                          headers=self._session.build_headers(content=''))
-        if r.status_code != 200:
-            raise Exception('Failed to retrieve track activity')
-
-        return marshmallow_dataclass.class_schema(TrackActivityModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/track/{track_key}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve track activity',
+                             TrackActivityModel)
 
     def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecordsModel:
         start_millis = int(start_time.timestamp() * 1000) if start_time else 0
         end_millis = int(end_time.timestamp() * 1000) if end_time else 0
-        r = requests.post(f"{self._prefix_path}/activity/track/records/{track_key}/{start_millis}/{end_millis}",
-                          headers=self._session.build_headers(content=''))
-        if r.status_code != 200:
-            raise Exception('Failed to retrieve track records')
-
-        return marshmallow_dataclass.class_schema(TrackRecordsModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/track/records/{track_key}/{start_millis}/{end_millis}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve track records',
+                             TrackRecordsModel)
 
     def publish_track_records(self, track_key: str, records: dict) -> ActivityUpdateResponseModel:
         """ Publish a set of site records to inmotion """
         record_data = stringify(records)
-        r = requests.post(f"{self._prefix_path}/activity/track/records/{track_key}",
-                          headers=self._session.build_headers(content=record_data),
-                          data=record_data)
-
-        if r.status_code != 200:
-            raise Exception('Failed to publish track records')
-
-        return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/track/records/{track_key}",
+                             self._session.build_headers(content=record_data),
+                             record_data,
+                             'Failed to publish track records',
+                             ActivityUpdateResponseModel)
 
     def create_site_activity(self, csam: CreateSiteActivityModel) -> ActivityUpdateResponseModel:
         site_data = stringify({
@@ -113,55 +92,44 @@ class InMotionActivitiesImpl(InMotionActivities):
             "location": asdict(csam.location),
             "recordInterval": csam.recordInterval
         })
-
-        r = requests.post(f"{self._prefix_path}/activity/site",
-                          headers=self._session.build_headers(content=site_data),
-                          data=site_data)
-        if r.status_code != 200:
-            raise Exception('Failed to create site activity')
-
-        return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/site",
+                             self._session.build_headers(content=site_data),
+                             site_data,
+                             'Failed to create site activity',
+                             ActivityUpdateResponseModel)
 
     def update_site_activity(self, site_key: str, usam: UpdateSiteActivityModel) -> ActivityUpdateResponseModel:
         site_data = stringify({
             "location": asdict(usam.location),
             "activity": asdict(usam.activity)
         })
-
-        r = requests.post(f"{self._prefix_path}/activity/site/{site_key}",
-                          headers=self._session.build_headers(content=site_data),
-                          data=site_data)
-        if r.status_code != 200:
-            raise Exception('Failed to update site activity')
-
-        return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/site/{site_key}",
+                             self._session.build_headers(content=site_data),
+                             site_data,
+                             'Failed to update site activity',
+                             ActivityUpdateResponseModel)
 
     def find_site_activity(self, site_key: str) -> SiteActivityModel:
-        r = requests.post(f"{self._prefix_path}/activity/site/{site_key}",
-                          headers=self._session.build_headers(content=''))
-        if r.status_code != 200:
-            raise Exception('Failed to retrieve site activity')
-
-        return marshmallow_dataclass.class_schema(SiteActivityModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/site/{site_key}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve site activity',
+                             SiteActivityModel)
 
     def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecordsModel:
         start_millis = int(start_time.timestamp() * 1000) if start_time else 0
         end_millis = int(end_time.timestamp() * 1000) if end_time else 0
-        r = requests.post(f"{self._prefix_path}/activity/site/records/{site_key}/{start_millis}/{end_millis}",
-                          headers=self._session.build_headers(content=''))
-        if r.status_code != 200:
-            raise Exception('Failed to retrieve site records')
-
-        return marshmallow_dataclass.class_schema(SiteRecordsModel)().load(r.json())
+        return request_json(f"{self._prefix_path}/activity/site/records/{site_key}/{start_millis}/{end_millis}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve site records',
+                             SiteRecordsModel)
 
     def publish_site_records(self, site_key: str, records: dict) -> ActivityUpdateResponseModel:
         """ Publish a set of site records to inmotion """
         record_data = stringify(records)
-        r = requests.post(f"{self._prefix_path}/activity/site/records/{site_key}",
-                          headers=self._session.build_headers(content=record_data),
-                          data=record_data)
-        if r.status_code != 200:
-            raise Exception('Failed to publish site records')
-
-        return marshmallow_dataclass.class_schema(ActivityUpdateResponseModel)().load(r.json())
-
+        return request_json(f"{self._prefix_path}/activity/site/records/{site_key}",
+                             self._session.build_headers(content=record_data),
+                             record_data,
+                             'Failed to publish site records',
+                             ActivityUpdateResponseModel)

@@ -80,7 +80,7 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def publish_track_records(self, track_key: str, records: dict[str, list[int | float]]):
+    def publish_track_records(self, track_key: str, records: dict[str, list[int | float]]) -> ActivityUpdateResponseModel:
         """ Publish a set of track records to inmotion
 
         :param str track_key: The unique key of the track activity to publish records to
@@ -135,7 +135,7 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def publish_site_records(self, site_key: str, records: dict[str, list[int | float]]):
+    def publish_site_records(self, site_key: str, records: dict[str, list[int | float]]) -> ActivityUpdateResponseModel:
         """ Publish a set of site records to inmotion
 
         :param str site_key: The unique key of the site activity to publish records to
@@ -160,6 +160,7 @@ class InMotionSession(ABC):
         """
         pass
 
+    @property
     @abstractmethod
     def is_connected(self) -> bool:
         """ Determine if the session is connected
@@ -169,6 +170,7 @@ class InMotionSession(ABC):
         """
         pass
 
+    @property
     @abstractmethod
     def base_url(self) -> str:
         """ The base URL for the inMotion instance
@@ -178,6 +180,7 @@ class InMotionSession(ABC):
         """
         pass
 
+    @property
     @abstractmethod
     def api_path(self) -> str:
         """ The API path for the inMotion instance
@@ -187,6 +190,7 @@ class InMotionSession(ABC):
         """
         pass
 
+    @property
     @abstractmethod
     def account(self) -> str:
         """ The account associated with the session

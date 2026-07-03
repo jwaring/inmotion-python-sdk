@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 class AccountType:
     FREE_PERSONAL = "I"
@@ -103,6 +103,10 @@ class SensorValueDateTimeModel(SensorValueModel):
 class SensorValueBooleanModel(SensorValueModel):
     value: bool
 
+# Deliberately not a @dataclass: subclasses of AttributeValueModel add a
+# non-default `value` field, which must stay ordered before the defaulted
+# kind/multiple fields below — inheriting them as real dataclass fields would
+# violate dataclass's no-default-after-default field ordering rule.
 class AttributeModel:
     kind: AttributeKind
     multiple: bool
@@ -481,7 +485,7 @@ class AccountUsersModel:
 class AccountAuditRecordModel:
     reasonCode: str
     context: str
-    data: Optional[any]
+    data: Optional[Any]
     updatedOn: int
     updatedBy: str
 
@@ -827,6 +831,7 @@ class DataStreamDetailsModel:
         else:
             return None
 
+@dataclass
 class DataStreamBlobMetadataModel:
     dataStreamKey: str
     dataKey: str
@@ -1112,6 +1117,7 @@ class ActivityDetailsModel:
     interval: Optional[Interval] = None
     shareInfo: Optional[list[ActivityShareInfoModel]] = None
 
+@dataclass
 class ActivityBlockStatisticsModel:
     nRecords: int
     startTime: int
@@ -1130,11 +1136,6 @@ class ActivityBlockStatisticsModel:
 class DataFilterModel:
     name: str
     params: dict[str, str]
-
-@dataclass
-class ValidRangeModel:
-    lower: float
-    upper: float
 
 @dataclass
 class ActivityVariableMetadataModel:
@@ -1205,6 +1206,7 @@ class SiteRecordsMapModel(dict[str, list[Optional[float]]]):
     def time_utc_datetime(self) -> list[datetime]:
         return [datetime.fromtimestamp(t / 1000.0) for t in self.timeUtc]
 
+@dataclass
 class ActivityRecordsModel:
     records: dict[str, list[Optional[SensorValueModel]]]
     metadata: dict[str, ActivityVariableMetadataModel]

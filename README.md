@@ -17,6 +17,18 @@ To build the SDK, you can use the following command:
 uv build
 ```
 
+# Unit Tests
+
+The `tests/` directory contains a `pytest`-based unit test suite covering request signing, error
+handling, and the API key / credentials client authentication flows. These tests mock all HTTP
+calls, so no live inMotion environment is required.
+
+```bash
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+python -m pytest tests/
+```
+
 # Integration Tests
 
 * Ensure that there is an inMotion integration test environment available.
