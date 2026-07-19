@@ -1,5 +1,41 @@
 from abc import ABC, abstractmethod
-from inmotion.models import *
+from datetime import datetime
+from typing import Optional
+
+from inmotion.models import (
+    AccountDetailsModel,
+    AccountMarkedForDeletionModel,
+    AccountModel,
+    AccountPrivilegesModel,
+    AccountTagsModel,
+    AccountUpdateBatchCommandModel,
+    AccountUpdateBatchResultsModel,
+    AccountUserSummaryModel,
+    AccountUserUnregisteredModel,
+    ActivitiesModel,
+    ActivityConfigBadPeriodDetectRequestModel,
+    ActivityConfigBadPeriodDetectResultModel,
+    ActivityConfigBadPeriodMergeRequestModel,
+    ActivityConfigBadPeriodMergeResultModel,
+    ActivityConfigCustomDataUpdateModel,
+    ActivityConfigDeleteResponseModel,
+    ActivityConfigModel,
+    ActivityConfigProcessingUpdateModel,
+    ActivityConfigQCRegionGenerateRequestModel,
+    ActivityConfigQCRegionGenerateResultModel,
+    ActivityConfigQCUpdateModel,
+    ActivitySearchFilterModel,
+    ActivityUpdateResponseModel,
+    CreateSiteActivityModel,
+    CreateTrackActivityModel,
+    LastActivitiesModel,
+    SiteActivityModel,
+    SiteRecordsModel,
+    TrackActivityModel,
+    TrackRecordsModel,
+    UpdateSiteActivityModel,
+    UpdateTrackActivityModel,
+)
 
 class InMotionActivities(ABC):
     @abstractmethod

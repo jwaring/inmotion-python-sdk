@@ -6,8 +6,7 @@ This is still a fledgling project as only a handful of endpoints have been imple
 
 # Prerequisites
 
-* Python 3.6 or higher
-* uvicorn
+* Python 3.10 or higher
 
 # Build
 

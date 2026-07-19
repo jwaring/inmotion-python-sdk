@@ -3,8 +3,8 @@ from inmotion.activities import InMotionActivitiesImpl
 from inmotion.activity_config import InMotionActivityConfigImpl
 from inmotion.exceptions import InMotionAuthenticationError
 from inmotion import InMotionSession, InMotionActivities, InMotionAccounts, InMotionActivityConfig
-from inmotion.utils import *
 from inmotion.models import AuthenticationSessionModel
+from inmotion.utils import build_im_headers, request_json, stringify
 
 INMOTION_API_VERSION = '2.0.0'
 

@@ -1,3 +1,9 @@
+""" Dataclass models mirroring the inMotion REST API's JSON request/response shapes.
+
+Imported explicitly by name from consuming modules (activities.py, accounts.py, etc.) rather than
+via a wildcard import, so each module's dependencies stay visible at a glance.
+"""
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional

@@ -1,8 +1,23 @@
 from dataclasses import asdict
+from datetime import datetime
+from typing import Optional
 
 from inmotion.api import InMotionSession, InMotionActivities
-from inmotion.models import *
-from inmotion.utils import *
+from inmotion.models import (
+    ActivitiesModel,
+    ActivitySearchFilterModel,
+    ActivityUpdateResponseModel,
+    CreateSiteActivityModel,
+    CreateTrackActivityModel,
+    LastActivitiesModel,
+    SiteActivityModel,
+    SiteRecordsModel,
+    TrackActivityModel,
+    TrackRecordsModel,
+    UpdateSiteActivityModel,
+    UpdateTrackActivityModel,
+)
+from inmotion.utils import request_json, request_raw, stringify
 
 
 class InMotionActivitiesImpl(InMotionActivities):

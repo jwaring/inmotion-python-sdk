@@ -8,23 +8,28 @@ version = "0.2.1"
 description = "An SDK for integrating with inMotion API"
 authors = [{ name = "Jason Waring", email = "jason@softwaringsolutions.com" }]
 license = { text = "MIT" }
+license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-          "numpy",
           "pycryptodome",
           "python-dotenv",
-          "pandas",
           "requests",
           "marshmallow",
           "marshmallow_dataclass"]
-classifiers = ["Private :: Do Not Upload"]
+classifiers = [
+          "License :: OSI Approved :: MIT License",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3 :: Only",
+          "Intended Audience :: Developers",
+          "Operating System :: OS Independent"]
 
 [project.optional-dependencies]
 dev = ["pytest", "tox"]
+examples = ["numpy", "pandas"]
 
 [project.scripts]
-test = "scripts.test:main"
+inmotion-smoke-test = "scripts.test:main"
 
 [tool.hatch.build]
 include = ["inmotion"]

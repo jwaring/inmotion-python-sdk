@@ -1,6 +1,18 @@
 from inmotion.api import InMotionSession, InMotionActivityConfig
-from inmotion.models import *
-from inmotion.utils import *
+from inmotion.models import (
+    ActivityConfigBadPeriodDetectRequestModel,
+    ActivityConfigBadPeriodDetectResultModel,
+    ActivityConfigBadPeriodMergeRequestModel,
+    ActivityConfigBadPeriodMergeResultModel,
+    ActivityConfigCustomDataUpdateModel,
+    ActivityConfigDeleteResponseModel,
+    ActivityConfigModel,
+    ActivityConfigProcessingUpdateModel,
+    ActivityConfigQCRegionGenerateRequestModel,
+    ActivityConfigQCRegionGenerateResultModel,
+    ActivityConfigQCUpdateModel,
+)
+from inmotion.utils import request_json, stringify_model
 
 # NOTE: the server mounts activity_config.routes at "/api/latest/activity-config", and every
 # route within that file repeats the "activity-config" path segment (e.g. "/activity-config/:key"),
