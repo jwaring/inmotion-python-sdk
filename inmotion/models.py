@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 
@@ -1604,6 +1604,135 @@ class InMotionAPIV1Model(InMotionAPIModel):
     dataStreams: Optional[dict[str, str]] = None
     dsBlob: Optional[DSBlobAPIPathModel] = None
     dsBlobs: Optional[dict[str, str]] = None
+
+## ACTIVITY CONFIGURATION MANAGEMENT
+
+@dataclass
+class QCTransformerAlgorithmModel:
+    name: str
+    inputs: list[str]
+    outputs: list[str]
+    parameters: Optional[dict[str, str]] = None
+
+@dataclass
+class QCTransformerModel:
+    label: str
+    algorithm: QCTransformerAlgorithmModel
+    comment: Optional[str] = None
+
+@dataclass
+class QCRegionModel:
+    """ action: 'none' | 'remove' | 'replace' | 'interpolate'; flag e.g. 'bad', 'suspect';
+    method (interpolation algorithm, only for 'interpolate'): 'linear' | 'spline' | 'cubic'. """
+    action: str
+    flag: str
+    from_: str = field(metadata=dict(data_key="from"))
+    to: str
+    variable: Optional[str] = None
+    label: Optional[str] = None
+    comment: Optional[str] = None
+    method: Optional[str] = None
+    value: Optional[Any] = None
+
+@dataclass
+class QCConfigModel:
+    regions: Optional[list[QCRegionModel]] = None
+    transformers: Optional[dict[str, list[QCTransformerModel]]] = None
+
+@dataclass
+class PrConfigDerivedChannelModel:
+    name: str
+    interval: str
+    measures: list[str]
+    recordIntervalAtLeast: str
+    activityDurationAtLeast: str
+
+@dataclass
+class HistoryEntryModel:
+    when: int
+    who: str
+    comment: Optional[str] = None
+
+    def when_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.when / 1000.0)
+
+@dataclass
+class CustomDataEntryModel:
+    when: int
+    who: str
+    label: str
+    data: str
+
+    def when_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.when / 1000.0)
+
+@dataclass
+class ActivityConfigModel:
+    key: str
+    qualityControl: QCConfigModel
+    processing: Optional[dict[str, list[PrConfigDerivedChannelModel]]] = None
+    history: Optional[list[HistoryEntryModel]] = None
+    customData: Optional[list[CustomDataEntryModel]] = None
+
+@dataclass
+class ActivityConfigDeleteResponseModel:
+    key: str
+    section: str
+    deleted: bool
+
+@dataclass
+class ActivityConfigQCUpdateModel:
+    qualityControl: QCConfigModel
+
+@dataclass
+class ActivityConfigProcessingUpdateModel:
+    processing: Optional[dict[str, list[PrConfigDerivedChannelModel]]] = None
+
+@dataclass
+class ActivityConfigCustomDataUpdateModel:
+    entries: Optional[list[CustomDataEntryModel]] = None
+
+@dataclass
+class ActivityConfigBadPeriodModel:
+    """ from/to are ISO-8601 timestamps; reason is a detector/workflow reason code;
+    score is a detector confidence score in the range [0, 1]. """
+    from_: str = field(metadata=dict(data_key="from"))
+    to: str
+    reason: Optional[str] = None
+    score: Optional[float] = None
+
+@dataclass
+class ActivityConfigBadPeriodDetectRequestModel:
+    from_: Optional[str] = field(default=None, metadata=dict(data_key="from"))
+    to: Optional[str] = None
+
+@dataclass
+class ActivityConfigBadPeriodDetectResultModel:
+    key: str
+    periods: list[ActivityConfigBadPeriodModel]
+
+@dataclass
+class ActivityConfigBadPeriodMergeRequestModel:
+    periods: list[ActivityConfigBadPeriodModel]
+    detectorVersion: str
+    dryRun: bool
+
+@dataclass
+class ActivityConfigBadPeriodMergeResultModel:
+    key: str
+    dryRun: bool
+    mergedCount: int
+    yaml: Optional[str] = None
+
+@dataclass
+class ActivityConfigQCRegionGenerateRequestModel:
+    from_: Optional[str] = field(default=None, metadata=dict(data_key="from"))
+    to: Optional[str] = None
+
+@dataclass
+class ActivityConfigQCRegionGenerateResultModel:
+    key: str
+    regions: list[QCRegionModel]
 
 @dataclass
 class AdminArchiveLocationModel:

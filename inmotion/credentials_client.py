@@ -1,6 +1,8 @@
+from inmotion.accounts import InMotionAccountsImpl
 from inmotion.activities import InMotionActivitiesImpl
+from inmotion.activity_config import InMotionActivityConfigImpl
 from inmotion.exceptions import InMotionAuthenticationError
-from inmotion import InMotionSession, InMotionActivities
+from inmotion import InMotionSession, InMotionActivities, InMotionAccounts, InMotionActivityConfig
 from inmotion.utils import *
 from inmotion.models import AuthenticationSessionModel
 
@@ -24,6 +26,12 @@ class InMotionCredentialsSession(InMotionSession):
 
     def activities(self) -> InMotionActivities:
         return InMotionActivitiesImpl(self)
+
+    def accounts(self) -> InMotionAccounts:
+        return InMotionAccountsImpl(self)
+
+    def activity_config(self) -> InMotionActivityConfig:
+        return InMotionActivityConfigImpl(self)
 
     def build_headers(self, content: str) -> dict[str, str]:
         return build_im_headers(dev_key=self._dev_key,
@@ -56,12 +64,12 @@ class InMotionCredentialsClient(object):
         self._dev_secret = dev_secret
         self._api_version = kwargs.pop('api_version', INMOTION_API_VERSION)
 
-    def connect(self, account: str, username: str, password: str) -> InMotionCredentialsSession:
+    def get_session(self, account: str, username: str, password: str) -> InMotionCredentialsSession:
         """
          Connect to inMotion and create a session for the given account and user
         """
         login_details = stringify({'username': username, 'password': password, 'apiVersion': self._api_version})
-        capabilities = request_json(self._base_url + "/api/authenticate",
+        capabilities = request_json('POST', self._base_url + "/api/latest/authenticate",
                                      build_im_headers(
                                          dev_key=self._dev_key,
                                          dev_secret=self._dev_secret,

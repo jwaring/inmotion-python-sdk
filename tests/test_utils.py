@@ -6,7 +6,7 @@ import pytest
 import requests
 
 from inmotion.exceptions import InMotionAPIError, InMotionConnectionError
-from inmotion.utils import build_im_headers, create_signature, request_json, stringify
+from inmotion.utils import build_im_headers, create_signature, request_json, request_raw, stringify, stringify_model
 
 
 @dataclasses.dataclass
@@ -57,32 +57,48 @@ def test_build_im_headers_omits_extra_header_when_only_name_given():
 def test_request_json_returns_raw_json_when_no_model():
     mock_response = MagicMock(status_code=200)
     mock_response.json.return_value = {"foo": "bar"}
-    with patch("inmotion.utils._http_session.post", return_value=mock_response):
-        result = request_json("http://example.test/x", {}, "", "error")
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
+        result = request_json("GET", "http://example.test/x", {}, "", "error")
     assert result == {"foo": "bar"}
 
 
+def test_request_json_dispatches_using_the_supplied_method():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {}
+    with patch("inmotion.utils._http_session.request", return_value=mock_response) as mock_request:
+        request_json("DELETE", "http://example.test/x", {"h": "v"}, "", "error")
+    mock_request.assert_called_once_with("DELETE", "http://example.test/x", headers={"h": "v"}, data=None, timeout=30)
+
+
+def test_request_json_sends_data_when_non_empty():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {}
+    with patch("inmotion.utils._http_session.request", return_value=mock_response) as mock_request:
+        request_json("POST", "http://example.test/x", {}, '{"a":1}', "error")
+    assert mock_request.call_args.kwargs["data"] == '{"a":1}'
+
+
 def test_request_json_raises_connection_error_on_network_failure():
-    with patch("inmotion.utils._http_session.post", side_effect=requests.ConnectionError("boom")):
+    with patch("inmotion.utils._http_session.request", side_effect=requests.ConnectionError("boom")):
         with pytest.raises(InMotionConnectionError, match="unable to reach inMotion"):
-            request_json("http://example.test/x", {}, "", "Failed to connect")
+            request_json("GET", "http://example.test/x", {}, "", "Failed to connect")
 
 
 def test_request_json_raises_api_error_on_non_2xx_with_server_detail():
     mock_response = MagicMock(status_code=400)
     mock_response.json.return_value = {"error": "bad input"}
-    with patch("inmotion.utils._http_session.post", return_value=mock_response):
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
         with pytest.raises(InMotionAPIError, match="bad input") as exc_info:
-            request_json("http://example.test/x", {}, "", "Failed to do thing")
+            request_json("GET", "http://example.test/x", {}, "", "Failed to do thing")
     assert exc_info.value.status_code == 400
 
 
 def test_request_json_raises_api_error_on_non_2xx_without_json_body():
     mock_response = MagicMock(status_code=500)
     mock_response.json.side_effect = ValueError("not json")
-    with patch("inmotion.utils._http_session.post", return_value=mock_response):
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
         with pytest.raises(InMotionAPIError, match=r"HTTP 500"):
-            request_json("http://example.test/x", {}, "", "Failed to do thing")
+            request_json("GET", "http://example.test/x", {}, "", "Failed to do thing")
 
 
 def test_request_json_raises_api_error_on_malformed_model_response():
@@ -93,6 +109,30 @@ def test_request_json_raises_api_error_on_malformed_model_response():
     class _StrictModel:
         required_field: str
 
-    with patch("inmotion.utils._http_session.post", return_value=mock_response):
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
         with pytest.raises(InMotionAPIError, match="Malformed response"):
-            request_json("http://example.test/x", {}, "", "Failed to load", _StrictModel)
+            request_json("GET", "http://example.test/x", {}, "", "Failed to load", _StrictModel)
+
+
+def test_request_json_many_loads_a_list_of_the_model():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = [{"name": "a", "value": 1}, {"name": "b", "value": 2}]
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
+        result = request_json("GET", "http://example.test/x", {}, "", "error", _Sample, many=True)
+    assert result == [_Sample(name="a", value=1), _Sample(name="b", value=2)]
+
+
+def test_stringify_model_uses_marshmallow_data_key_for_reserved_word_fields():
+    from inmotion.models import ActivityConfigBadPeriodModel
+
+    period = ActivityConfigBadPeriodModel(from_="2024-01-01T00:00:00Z", to="2024-01-01T01:00:00Z")
+    result = stringify_model(period)
+    assert '"from":"2024-01-01T00:00:00Z"' in result
+    assert "from_" not in result
+
+
+def test_request_raw_returns_response_content():
+    mock_response = MagicMock(status_code=200, content=b"csv,data")
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
+        result = request_raw("GET", "http://example.test/x", {}, "", "error")
+    assert result == b"csv,data"

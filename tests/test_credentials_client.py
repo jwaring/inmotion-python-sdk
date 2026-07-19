@@ -24,19 +24,21 @@ def _client() -> InMotionCredentialsClient:
     return InMotionCredentialsClient(base_url="http://example.test", dev_key="devkey", dev_secret="devsecret")
 
 
-def test_connect_active_returns_session_with_token():
-    with patch("inmotion.credentials_client.request_json", return_value=_auth_session("active")):
-        session = _client().connect("my-account", "user", "pass")
+def test_get_session_active_returns_session_with_token():
+    with patch("inmotion.credentials_client.request_json", return_value=_auth_session("active")) as mock_request_json:
+        session = _client().get_session("my-account", "user", "pass")
 
     assert isinstance(session, InMotionCredentialsSession)
     assert session.account == "my-account"
     assert session.is_connected is True
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/latest/authenticate"
 
 
-def test_connect_other_status_raises_authentication_error():
+def test_get_session_other_status_raises_authentication_error():
     with patch("inmotion.credentials_client.request_json", return_value=_auth_session("revoked")):
         with pytest.raises(InMotionAuthenticationError, match="expired or unavailable"):
-            _client().connect("my-account", "user", "pass")
+            _client().get_session("my-account", "user", "pass")
 
 
 def test_session_build_headers_includes_auth_token_header():

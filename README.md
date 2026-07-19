@@ -56,6 +56,91 @@ uv pip install -e .
 python3 scripts/test.py
 ```
 
+# Feature Areas
+
+## Upgrading from an older version
+
+If you were already calling `find_track_activity`, `find_site_activity`, `get_track_records`,
+`get_site_records`, `find_activities_within_time_range`, or `find_latest_activity_stats`, note that
+earlier versions of this SDK issued every HTTP request as a `POST`, even for these read-only,
+`GET`-only endpoints. Against a real inMotion server this either silently invoked the wrong
+operation or returned a 404. These methods now issue the correct HTTP verb — no code changes are
+required to call them, but double-check any code that was working around the previous failures.
+
+`InMotionCredentialsClient.connect(...)` has been renamed to `get_session(...)` to match
+`InMotionAPIKeyClient`, and now authenticates against the current `/api/latest/authenticate`
+endpoint rather than the deprecated `/api/authenticate`.
+
+## Track and Site Activities
+
+In addition to create/update/find/records, the activities interface now supports the full
+lifecycle of a track or site activity:
+
+```python
+activities = session.activities()
+
+activities.delete_track_activity(track_key)
+activities.unlock_track_activity(track_key)
+activities.find_all_track_records(track_key)  # no time-range restriction
+records_bytes = activities.download_track_records(track_key, "csv")  # 'csv', 'json' or 'gpx'
+
+activities.share_track_activity(track_key, "any")  # or "private"
+activities.unshare_track_activity(track_key, "any")
+activities.find_shared_track_activity(track_key)
+activities.find_all_shared_track_records(track_key)
+```
+
+The same methods exist for sites (`delete_site_activity`, `unlock_site_activity`,
+`find_all_site_records`, `download_site_records`, `share_site_activity`, `unshare_site_activity`,
+`find_shared_site_activity`, `find_shared_site_records`).
+
+## Accounts
+
+`session.accounts()` exposes account management operations:
+
+```python
+accounts = session.accounts()
+
+account = accounts.find_account(account_key)
+tags = accounts.find_account_tags(account_key)
+accounts.update_account(account_key, AccountModel(name="Acme", address=None, accountType="1", attrs={}, profiles=[]))
+
+users = accounts.find_account_users(account_key)
+accounts.register_account_user(account_key, user_key, privileges)
+accounts.unregister_account_user(account_key, user_key)
+accounts.batch_update_account_users(account_key, [AccountUpdateBatchCommandModel(action="register", userName="jdoe", privileges=None)])
+
+new_account = accounts.create_account_only(AccountModel(name="New Co", address=None, accountType="I", attrs={}, profiles=[]))
+accounts.mark_account_for_deletion(account_key, and_user=False)
+```
+
+## Activity Configuration
+
+`session.activity_config()` manages the Quality Control, Processing, and Custom Data sections of
+an activity's configuration, and supports bad-period detection for track activities:
+
+```python
+config = session.activity_config()
+
+full_config = config.find_activity_config(activity_key)
+
+config.update_qc_config(activity_key, ActivityConfigQCUpdateModel(qualityControl=QCConfigModel(regions=[...])))
+config.update_processing_config(activity_key, ActivityConfigProcessingUpdateModel(processing={...}))
+config.update_custom_data_config(activity_key, ActivityConfigCustomDataUpdateModel(entries=[...]))
+
+# Workflow: detect candidate bad periods on a track activity, then merge them into the QC config
+detected = config.detect_bad_periods(activity_key, ActivityConfigBadPeriodDetectRequestModel())
+config.merge_bad_periods(activity_key, ActivityConfigBadPeriodMergeRequestModel(
+    periods=detected.periods, detectorVersion="v1", dryRun=False))
+
+regions = config.generate_qc_regions(activity_key, ActivityConfigQCRegionGenerateRequestModel())
+
+config.delete_activity_config(activity_key)
+```
+
+Not yet covered by this SDK: Upload, Data Stream(s), Folio, Devkey, Apikey, and User management —
+these are planned for a follow-up release.
+
 # Example
 
 An example program is provided in the `examples` directory will load the [Australian Bureau of Meteorology](http://www.bom.gov.au/)

@@ -25,6 +25,14 @@ def stringify(o):
         return json.dumps(o, separators=(',', ':'))
 
 
+def stringify_model(o) -> str:
+    """ Serialize a dataclass instance via its marshmallow schema, so fields that remap to a
+    different JSON key (e.g. a Python-reserved word like 'from' aliased to 'from_') are
+    serialized under their real API name rather than their Python attribute name. """
+    schema = marshmallow_dataclass.class_schema(type(o))()
+    return json.dumps(schema.dump(o), separators=(',', ':'))
+
+
 def create_signature(secret_key, string) -> str:
     hmac = HMAC.new(secret_key, string.encode('utf-8'), SHA1)
     return b64encode(hmac.digest()).decode('utf-8')
@@ -47,10 +55,10 @@ def build_im_headers(dev_key: str, dev_secret: str, content: str ='', extra_name
     return headers
 
 
-def request_json(url: str, headers: dict[str, str], data: str, error_message: str,
-                  model: Optional[Type[T]] = None, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> T:
+def _send_request(method: str, url: str, headers: dict[str, str], data: str, error_message: str,
+                   timeout: int):
     try:
-        r = _http_session.post(url, headers=headers, data=data, timeout=timeout)
+        r = _http_session.request(method, url, headers=headers, data=data if data else None, timeout=timeout)
     except requests.RequestException as e:
         raise InMotionConnectionError(f"{error_message}: unable to reach inMotion") from e
 
@@ -65,11 +73,26 @@ def request_json(url: str, headers: dict[str, str], data: str, error_message: st
         detail = f": {server_detail}" if server_detail else f" (HTTP {r.status_code})"
         raise InMotionAPIError(f"{error_message}{detail}", status_code=r.status_code)
 
+    return r
+
+
+def request_json(method: str, url: str, headers: dict[str, str], data: str, error_message: str,
+                  model: Optional[Type[T]] = None, timeout: int = DEFAULT_TIMEOUT_SECONDS,
+                  many: bool = False) -> T:
+    r = _send_request(method, url, headers, data, error_message, timeout)
+
     if model is None:
         return r.json()
 
     try:
-        return marshmallow_dataclass.class_schema(model)().load(r.json())
+        return marshmallow_dataclass.class_schema(model)(many=many).load(r.json())
     except Exception as e:
         raise InMotionAPIError(f"Malformed response received from inMotion for: {error_message}") from e
+
+
+def request_raw(method: str, url: str, headers: dict[str, str], data: str, error_message: str,
+                 timeout: int = DEFAULT_TIMEOUT_SECONDS) -> bytes:
+    """ Issue a request and return the raw response body, for endpoints that don't return JSON. """
+    r = _send_request(method, url, headers, data, error_message, timeout)
+    return r.content
 
