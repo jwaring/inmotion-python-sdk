@@ -1,3 +1,19 @@
-from inmotion.api import InMotionSession, InMotionActivities, InMotionAccounts, InMotionActivityConfig
+from inmotion.api import (
+    InMotionSession,
+    InMotionActivities,
+    InMotionAccounts,
+    InMotionActivityConfig,
+    InMotionApiKeys,
+    InMotionDevKeys,
+    InMotionUser,
+)
 
-__all__ = [InMotionSession, InMotionActivities, InMotionAccounts, InMotionActivityConfig]
+__all__ = [
+    "InMotionSession",
+    "InMotionActivities",
+    "InMotionAccounts",
+    "InMotionActivityConfig",
+    "InMotionApiKeys",
+    "InMotionDevKeys",
+    "InMotionUser",
+]

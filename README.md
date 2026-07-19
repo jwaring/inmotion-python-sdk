@@ -137,8 +137,43 @@ regions = config.generate_qc_regions(activity_key, ActivityConfigQCRegionGenerat
 config.delete_activity_config(activity_key)
 ```
 
-Not yet covered by this SDK: Upload, Data Stream(s), Folio, Devkey, Apikey, and User management —
-these are planned for a follow-up release.
+## Developer Keys and API Keys
+
+`session.dev_keys()` and `session.api_keys()` manage the developer key / secret pairs and API keys
+issued against an account:
+
+```python
+dev_keys = session.dev_keys()
+keys = dev_keys.find_dev_keys(account_key)
+new_key = dev_keys.create_dev_key(account_key, AccountDevKeyCreatorModel(name="ci", hmacEnabled=True, expiryOn=None))
+dev_keys.update_dev_key(account_key, new_key.devKey, AccountDevKeyUpdatorModel(name="ci-renamed", hmacEnabled=None))
+dev_keys.delete_dev_key(account_key, new_key.devKey)
+
+api_keys = session.api_keys()
+api_key = api_keys.create_api_key(account_key, AccountAPIKeyCreatorModel(name="integration", privs=privileges, expiryOn=None))
+```
+
+## User Management
+
+`session.user()` manages the currently authenticated user, and account-scoped user registration:
+
+```python
+user = session.user()
+
+user.find_user_attributes()
+user.update_user_attributes(UserAttributesModel(userName="jdoe", displayName="J Doe", email="j@x.com",
+                                                 publicUserName=False, firstName=None, lastName=None,
+                                                 avatarUrl=None, attrs={}))
+
+# Register a new user and grant them a privilege level ('view', 'contribute', or 'admin') on an account
+user.create_user_against_account(account_key, "view", registration)
+
+user.request_password_reset(UserPasswordRequestModel(userNameOrEmail="jdoe"))
+user.unregister_from_account(account_key)
+```
+
+Not yet covered by this SDK: Upload, Data Stream, Data Streams, and Folio management — these are
+planned for a follow-up release.
 
 # Example
 

@@ -3,7 +3,15 @@ from datetime import datetime
 from typing import Optional
 
 from inmotion.models import (
+    AccountAPIKeyCreatorModel,
+    AccountAPIKeyModel,
+    AccountAPIKeyResponseModel,
+    AccountAPIKeyUpdatorModel,
     AccountDetailsModel,
+    AccountDevKeyCreatorModel,
+    AccountDevKeyModel,
+    AccountDevKeyResponseModel,
+    AccountDevKeyUpdatorModel,
     AccountMarkedForDeletionModel,
     AccountModel,
     AccountPrivilegesModel,
@@ -29,12 +37,17 @@ from inmotion.models import (
     CreateSiteActivityModel,
     CreateTrackActivityModel,
     LastActivitiesModel,
+    MessageResponseModel,
     SiteActivityModel,
     SiteRecordsModel,
     TrackActivityModel,
     TrackRecordsModel,
     UpdateSiteActivityModel,
     UpdateTrackActivityModel,
+    UserAttributesModel,
+    UserPasswordRequestModel,
+    UserRegistrationModel,
+    UserUnregisteredResponseModel,
 )
 
 class InMotionActivities(ABC):
@@ -520,6 +533,174 @@ class InMotionActivityConfig(ABC):
         pass
 
 
+class InMotionDevKeys(ABC):
+    @abstractmethod
+    def find_dev_keys(self, account_key: str) -> list[AccountDevKeyModel]:
+        """ Retrieve the developer keys associated with an account
+
+        :param str account_key: The unique key of the account
+        :return: The account's developer keys
+        :rtype: list[AccountDevKeyModel]
+        """
+        pass
+
+    @abstractmethod
+    def create_dev_key(self, account_key: str, creator: AccountDevKeyCreatorModel) -> AccountDevKeyModel:
+        """ Create a new developer key for an account
+
+        :param str account_key: The unique key of the account
+        :param AccountDevKeyCreatorModel creator: The definition of the developer key to create
+        :return: The created developer key
+        :rtype: AccountDevKeyModel
+        """
+        pass
+
+    @abstractmethod
+    def update_dev_key(self, account_key: str, dev_key: str, updator: AccountDevKeyUpdatorModel) -> AccountDevKeyModel:
+        """ Update an existing developer key
+
+        :param str account_key: The unique key of the account
+        :param str dev_key: The developer key to update
+        :param AccountDevKeyUpdatorModel updator: The updated fields for the developer key
+        :return: The updated developer key
+        :rtype: AccountDevKeyModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_dev_key(self, account_key: str, dev_key: str) -> AccountDevKeyResponseModel:
+        """ Delete a developer key from an account
+
+        :param str account_key: The unique key of the account
+        :param str dev_key: The developer key to delete
+        :return: The result of the delete operation
+        :rtype: AccountDevKeyResponseModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dev_key(self, account_key: str, dev_key: str) -> AccountDevKeyModel:
+        """ Find a specific developer key belonging to an account
+
+        :param str account_key: The unique key of the account
+        :param str dev_key: The developer key to retrieve
+        :return: The developer key
+        :rtype: AccountDevKeyModel
+        """
+        pass
+
+
+class InMotionApiKeys(ABC):
+    @abstractmethod
+    def find_api_keys(self, account_key: str) -> list[AccountAPIKeyModel]:
+        """ Retrieve the API keys associated with an account
+
+        :param str account_key: The unique key of the account
+        :return: The account's API keys
+        :rtype: list[AccountAPIKeyModel]
+        """
+        pass
+
+    @abstractmethod
+    def create_api_key(self, account_key: str, creator: AccountAPIKeyCreatorModel) -> AccountAPIKeyModel:
+        """ Create a new API key for an account
+
+        :param str account_key: The unique key of the account
+        :param AccountAPIKeyCreatorModel creator: The definition of the API key to create
+        :return: The created API key
+        :rtype: AccountAPIKeyModel
+        """
+        pass
+
+    @abstractmethod
+    def update_api_key(self, account_key: str, api_key: str, updator: AccountAPIKeyUpdatorModel) -> AccountAPIKeyModel:
+        """ Update an existing API key
+
+        :param str account_key: The unique key of the account
+        :param str api_key: The API key to update
+        :param AccountAPIKeyUpdatorModel updator: The updated fields for the API key
+        :return: The updated API key
+        :rtype: AccountAPIKeyModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_api_key(self, account_key: str, api_key: str) -> AccountAPIKeyResponseModel:
+        """ Delete an API key from an account
+
+        :param str account_key: The unique key of the account
+        :param str api_key: The API key to delete
+        :return: The result of the delete operation
+        :rtype: AccountAPIKeyResponseModel
+        """
+        pass
+
+    @abstractmethod
+    def find_api_key(self, account_key: str, api_key: str) -> AccountAPIKeyModel:
+        """ Find a specific API key belonging to an account
+
+        :param str account_key: The unique key of the account
+        :param str api_key: The API key to retrieve
+        :return: The API key
+        :rtype: AccountAPIKeyModel
+        """
+        pass
+
+
+class InMotionUser(ABC):
+    @abstractmethod
+    def create_user_against_account(self, account_key: str, privilege_label: str, registration: UserRegistrationModel) -> AccountUserSummaryModel:
+        """ Register a new user and grant them a privilege level against an account
+
+        :param str account_key: The unique key of the account to register the user against
+        :param str privilege_label: The privilege level to grant ('view', 'contribute', or 'admin';
+            any other value is treated as 'view' by the server)
+        :param UserRegistrationModel registration: The definition of the user to create
+        :return: A summary of the newly created and registered user
+        :rtype: AccountUserSummaryModel
+        """
+        pass
+
+    @abstractmethod
+    def request_password_reset(self, request: UserPasswordRequestModel) -> MessageResponseModel:
+        """ Request a password reset email be sent to a user
+
+        :param UserPasswordRequestModel request: The username or email address of the user
+        :return: A confirmation message
+        :rtype: MessageResponseModel
+        """
+        pass
+
+    @abstractmethod
+    def find_user_attributes(self) -> UserAttributesModel:
+        """ Retrieve the attributes of the currently authenticated user
+
+        :return: The authenticated user's attributes
+        :rtype: UserAttributesModel
+        """
+        pass
+
+    @abstractmethod
+    def update_user_attributes(self, attributes: UserAttributesModel) -> dict:
+        """ Update the attributes of the currently authenticated user
+
+        :param UserAttributesModel attributes: The updated attributes
+        :return: A raw confirmation message from the server (not a re-fetch of the attributes)
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def unregister_from_account(self, account_key: str) -> UserUnregisteredResponseModel:
+        """ Unregister the currently authenticated user from an account
+
+        :param str account_key: The unique key of the account to unregister from
+        :return: The result of the unregister operation
+        :rtype: UserUnregisteredResponseModel
+        """
+        pass
+
+
 class InMotionSession(ABC):
     @abstractmethod
     def disconnect(self) -> None:
@@ -541,6 +722,33 @@ class InMotionSession(ABC):
 
         :return: The account management interface
         :rtype: InMotionAccounts
+        """
+        pass
+
+    @abstractmethod
+    def dev_keys(self) -> InMotionDevKeys:
+        """ Retrieve the developer key management interface for the session
+
+        :return: The developer key management interface
+        :rtype: InMotionDevKeys
+        """
+        pass
+
+    @abstractmethod
+    def api_keys(self) -> InMotionApiKeys:
+        """ Retrieve the API key management interface for the session
+
+        :return: The API key management interface
+        :rtype: InMotionApiKeys
+        """
+        pass
+
+    @abstractmethod
+    def user(self) -> InMotionUser:
+        """ Retrieve the user management interface for the session
+
+        :return: The user management interface
+        :rtype: InMotionUser
         """
         pass
 

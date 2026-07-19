@@ -1,9 +1,20 @@
 from inmotion.accounts import InMotionAccountsImpl
 from inmotion.activities import InMotionActivitiesImpl
 from inmotion.activity_config import InMotionActivityConfigImpl
+from inmotion.apikey import InMotionApiKeysImpl
+from inmotion.devkey import InMotionDevKeysImpl
 from inmotion.exceptions import InMotionAuthenticationError
-from inmotion import InMotionSession, InMotionActivities, InMotionAccounts, InMotionActivityConfig
+from inmotion import (
+    InMotionSession,
+    InMotionActivities,
+    InMotionAccounts,
+    InMotionActivityConfig,
+    InMotionApiKeys,
+    InMotionDevKeys,
+    InMotionUser,
+)
 from inmotion.models import AuthenticationSessionModel
+from inmotion.user import InMotionUserImpl
 from inmotion.utils import build_im_headers, request_json, stringify
 
 INMOTION_API_VERSION = '2.0.0'
@@ -29,6 +40,15 @@ class InMotionCredentialsSession(InMotionSession):
 
     def accounts(self) -> InMotionAccounts:
         return InMotionAccountsImpl(self)
+
+    def dev_keys(self) -> InMotionDevKeys:
+        return InMotionDevKeysImpl(self)
+
+    def api_keys(self) -> InMotionApiKeys:
+        return InMotionApiKeysImpl(self)
+
+    def user(self) -> InMotionUser:
+        return InMotionUserImpl(self)
 
     def activity_config(self) -> InMotionActivityConfig:
         return InMotionActivityConfigImpl(self)

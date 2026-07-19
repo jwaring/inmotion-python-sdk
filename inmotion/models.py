@@ -258,6 +258,7 @@ class UserModel:
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
+    preferredUnitSystem: Optional[str] = None
 
     def license_accepted_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
@@ -278,6 +279,7 @@ class UserAttributesModel:
     lastName: Optional[str]
     avatarUrl: Optional[str]
     attrs: dict[str, AttributeModel]
+    preferredUnitSystem: Optional[str] = None
 
 @dataclass
 class UserPasswordRequestModel:
@@ -454,6 +456,7 @@ class AccountUserSummaryModel:
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
+    preferredUnitSystem: Optional[str] = None
 
     def license_accepted_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
