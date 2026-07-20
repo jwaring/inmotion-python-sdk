@@ -2,6 +2,7 @@ from inmotion.accounts import InMotionAccountsImpl
 from inmotion.activities import InMotionActivitiesImpl
 from inmotion.activity_config import InMotionActivityConfigImpl
 from inmotion.apikey import InMotionApiKeysImpl
+from inmotion.datastream import InMotionDataStreamImpl
 from inmotion.devkey import InMotionDevKeysImpl
 from inmotion.exceptions import InMotionAuthenticationError
 from inmotion.folio import InMotionFolioImpl
@@ -11,6 +12,7 @@ from inmotion import (
     InMotionAccounts,
     InMotionActivityConfig,
     InMotionApiKeys,
+    InMotionDataStream,
     InMotionDevKeys,
     InMotionFolio,
     InMotionUpload,
@@ -60,6 +62,9 @@ class InMotionAPIKeySession(InMotionSession):
 
     def folio(self) -> InMotionFolio:
         return InMotionFolioImpl(self)
+
+    def data_stream(self) -> InMotionDataStream:
+        return InMotionDataStreamImpl(self)
 
     def build_headers(self, content: str) -> dict[str, str]:
         return build_im_headers(dev_key=self._dev_key,

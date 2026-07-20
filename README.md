@@ -221,8 +221,50 @@ folio_api.delete_folios_by_set(fs.key)
 folio_api.delete_folio_set(fs.key)
 ```
 
-Not yet covered by this SDK: Data Stream and Data Streams management — these are planned for a
-follow-up release.
+## Data Streams
+
+`session.data_stream()` manages data streams and their two kinds of data channel: hyperslab
+(array/gridded numeric data) and blob (byte-oriented data, e.g. images or arbitrary binary blobs).
+
+```python
+ds_api = session.data_stream()
+
+ds = ds_api.create_data_stream(DataStreamCreatorModel(
+    name="Weather Station 1", description="...", account=account_key, owner=user_key, tags=[],
+    sourceIdentifier="ws1", sourceCategory="weather", sourceProfile="standard", sourceName="WS1",
+    acqConv="raw", coordConv="wgs84", timezone="UTC", attrs={}, created=0))
+
+ds_api.find_data_stream(ds.key)
+ds_api.find_data_streams(DataStreamFilterModel(accounts=[account_key]))
+ds_api.find_data_streams_by_name(account_key, "Weather")
+
+# Hyperslab (numeric) channels
+ds_api.create_hyperslab_channel(ds.key, DataChannelCreatorModel(
+    channelType="temperature", profiles={}, unlimitedDim="time", fixedDims={}, vars={}, created=0))
+ds_api.update_invariant_hyperslab_data(ds.key, "temperature", {"units": "celsius"})
+ds_api.update_hyperslab_record_data(ds.key, "temperature", {"timeUtc": [...], "value": [...]})
+ds_api.find_hyperslab_record_data(ds.key, "temperature", start, end)
+
+# Blob (byte-oriented) channels
+ds_api.create_blob_channel(ds.key, DataChannelCreatorModel(
+    channelType="image", profiles={}, unlimitedDim=None, fixedDims={}, vars={}, created=0))
+ds_api.update_invariant_blob_data(ds.key, "image", "raw", image_bytes)
+ds_api.find_latest_blob_record_data(ds.key, "image", "raw")
+raw_bytes = ds_api.open_blob_stream(ds.key, blob_key)
+
+ds_api.find_blobs(DataStreamFilterModel(accounts=[account_key]))
+ds_api.unlock_data_stream(ds.key)
+ds_api.delete_data_stream(ds.key)
+```
+
+**Note:** the hyperslab data endpoints (`find`/`update_invariant_hyperslab_data`,
+`find`/`update_hyperslab_record_data`) and the three channel management calls
+(`create`/`update`/`delete_hyperslab_channel`, `create`/`update`/`delete_blob_channel`) return a raw
+`dict` rather than a typed model — the server itself has no fixed schema for these (the shape is
+derived per data-channel variable definition), so a fixed dataclass here would be guessing a schema
+the server doesn't have. The blob byte-upload methods (`update_invariant_blob_data`,
+`update_blob_record_data`) have been verified against the server's signing code but not yet against
+a live inMotion instance — test them against `.env.test` before relying on them in production.
 
 # Example
 

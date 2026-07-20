@@ -36,6 +36,14 @@ from inmotion.models import (
     ActivityUpdateResponseModel,
     CreateSiteActivityModel,
     CreateTrackActivityModel,
+    DataChannelCreatorModel,
+    DataStreamBlobSummaryModel,
+    DataStreamCreatorModel,
+    DataStreamDetailsModel,
+    DataStreamFilterModel,
+    DataStreamInvariantBlobMetadataModel,
+    DataStreamRecordsBlobMetadataModel,
+    DataStreamSummaryModel,
     FolioDetailsModel,
     FolioModel,
     FolioSetDetailsModel,
@@ -913,6 +921,294 @@ class InMotionFolio(ABC):
         pass
 
 
+class InMotionDataStream(ABC):
+    """ Data stream management: the data stream entity itself, its hyperslab (array/gridded) data
+    channels, and its blob (byte-oriented) data channels.
+
+    A handful of methods here return a raw ``dict`` rather than a typed model. This isn't a
+    shortcut - those specific endpoints (hyperslab channel management, and hyperslab invariant/
+    record data read and write) have no fixed JSON schema on the server: their shape is derived
+    dynamically per data-channel definition (variable names/types), not declared as a dataclass
+    anywhere in the server's own model layer. Modeling them as a fixed dataclass here would be
+    guessing a schema the server itself doesn't have.
+    """
+
+    @abstractmethod
+    def create_data_stream(self, creator: DataStreamCreatorModel) -> DataStreamDetailsModel:
+        """ Create a new data stream
+
+        :param DataStreamCreatorModel creator: The definition of the data stream to create
+        :return: The created data stream's details
+        :rtype: DataStreamDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_data_stream(self, key: str, creator: DataStreamCreatorModel) -> DataStreamDetailsModel:
+        """ Update an existing data stream
+
+        :param str key: The unique key of the data stream to update
+        :param DataStreamCreatorModel creator: The updated definition of the data stream
+        :return: The updated data stream's details
+        :rtype: DataStreamDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def find_data_stream(self, key: str) -> DataStreamDetailsModel:
+        """ Find a data stream by its unique key
+
+        :param str key: The unique key of the data stream
+        :return: The data stream's details
+        :rtype: DataStreamDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_data_stream(self, key: str) -> dict:
+        """ Delete a data stream
+
+        :param str key: The unique key of the data stream to delete
+        :return: A raw dict with a 'message' key confirming deletion
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def unlock_data_stream(self, key: str) -> dict:
+        """ Unlock a data stream so that it can be modified or updated
+
+        :param str key: The unique key of the data stream to unlock
+        :return: A raw dict with a 'message' key confirming the unlock
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_data_streams(self, data_stream_filter: DataStreamFilterModel) -> list[DataStreamSummaryModel]:
+        """ Find data streams matching a filter
+
+        :param DataStreamFilterModel data_stream_filter: The filter to apply to the search
+        :return: Summaries of the matching data streams
+        :rtype: list[DataStreamSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_data_streams_by_name(self, account: str, name_pattern: str) -> list[DataStreamSummaryModel]:
+        """ Find data streams for an account matching a (partial) name
+
+        :param str account: The unique key of the account
+        :param str name_pattern: A partial name to match data streams against
+        :return: Summaries of the matching data streams
+        :rtype: list[DataStreamSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def create_hyperslab_channel(self, key: str, creator: DataChannelCreatorModel) -> dict:
+        """ Create a hyperslab (array/gridded) data channel on a data stream
+
+        :param str key: The unique key of the data stream
+        :param DataChannelCreatorModel creator: The definition of the data channel to create
+        :return: A raw dict with 'dsKey', 'channelType', 'status', and 'dataChannel' keys
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_hyperslab_channel(self, key: str, channel_code: str, creator: DataChannelCreatorModel) -> dict:
+        """ Update an existing hyperslab data channel
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type to update
+        :param DataChannelCreatorModel creator: The updated definition of the data channel
+        :return: A raw dict with 'dsKey', 'channelType', 'status', and 'dataChannel' keys
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def delete_hyperslab_channel(self, key: str, channel_code: str) -> dict:
+        """ Delete a hyperslab data channel
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type to delete
+        :return: A raw dict with 'dsKey', 'channelType', and 'status' keys
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_invariant_hyperslab_data(self, key: str, channel_code: str) -> dict:
+        """ Retrieve the invariant (static, non-time-varying) data for a hyperslab channel
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :return: A raw dict of the invariant data, shaped per the channel's own variable definitions
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_invariant_hyperslab_data(self, key: str, channel_code: str, data: dict) -> dict:
+        """ Update the invariant (static, non-time-varying) data for a hyperslab channel
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param dict data: The invariant data, shaped per the channel's own variable definitions
+        :return: A raw dict with a 'message' key confirming the update
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_hyperslab_record_data(self, key: str, channel_code: str, start: datetime, end: datetime) -> dict:
+        """ Retrieve hyperslab record (time-varying) data within a time range
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param datetime start: The start of the time range (inclusive)
+        :param datetime end: The end of the time range (inclusive)
+        :return: A raw dict of the record data, shaped per the channel's own variable definitions
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_hyperslab_record_data(self, key: str, channel_code: str, data: dict) -> dict:
+        """ Update hyperslab record (time-varying) data
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param dict data: The record data, shaped per the channel's own variable definitions
+        :return: A raw dict with a 'message' key confirming the update
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def create_blob_channel(self, key: str, creator: DataChannelCreatorModel) -> dict:
+        """ Create a blob (byte-oriented) data channel on a data stream
+
+        :param str key: The unique key of the data stream
+        :param DataChannelCreatorModel creator: The definition of the data channel to create
+        :return: A raw dict with 'dsKey', 'channelType', 'status', and 'dataChannel' keys
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_blob_channel(self, key: str, channel_code: str, creator: DataChannelCreatorModel) -> dict:
+        """ Update an existing blob data channel
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type to update
+        :param DataChannelCreatorModel creator: The updated definition of the data channel
+        :return: A raw dict with 'dsKey', 'channelType', 'status', and 'dataChannel' keys
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def delete_blob_channel(self, key: str, channel_code: str) -> dict:
+        """ Delete a blob data channel
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type to delete
+        :return: A raw dict with 'dsKey', 'channelType', and 'status' keys
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_invariant_blob_data(self, key: str, channel_code: str, profile: str) -> DataStreamInvariantBlobMetadataModel:
+        """ Retrieve the metadata for the invariant (static) blob data of a channel/profile
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param str profile: The storage profile to retrieve
+        :return: The invariant blob's metadata
+        :rtype: DataStreamInvariantBlobMetadataModel
+        """
+        pass
+
+    @abstractmethod
+    def update_invariant_blob_data(self, key: str, channel_code: str, profile: str, data: bytes) -> DataStreamInvariantBlobMetadataModel:
+        """ Update the invariant (static) blob data of a channel/profile
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param str profile: The storage profile to update
+        :param bytes data: The raw bytes to store
+        :return: The updated invariant blob's metadata
+        :rtype: DataStreamInvariantBlobMetadataModel
+        """
+        pass
+
+    @abstractmethod
+    def find_blob_record_data(self, key: str, channel_code: str, start: datetime, end: datetime, profile: str) -> dict[str, DataStreamRecordsBlobMetadataModel]:
+        """ Retrieve the metadata for blob record data within a time range
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param datetime start: The start of the time range (inclusive)
+        :param datetime end: The end of the time range (inclusive)
+        :param str profile: The storage profile to retrieve
+        :return: A map of interval identifier to the matching blob record's metadata
+        :rtype: dict[str, DataStreamRecordsBlobMetadataModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_latest_blob_record_data(self, key: str, channel_code: str, profile: str) -> DataStreamRecordsBlobMetadataModel:
+        """ Retrieve the metadata for the most recent blob record data of a channel/profile
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param str profile: The storage profile to retrieve
+        :return: The latest blob record's metadata
+        :rtype: DataStreamRecordsBlobMetadataModel
+        """
+        pass
+
+    @abstractmethod
+    def update_blob_record_data(self, key: str, channel_code: str, start: datetime, end: datetime, profile: str, data: bytes) -> DataStreamRecordsBlobMetadataModel:
+        """ Update blob record data within a time range
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param datetime start: The start of the time range (inclusive)
+        :param datetime end: The end of the time range (inclusive)
+        :param str profile: The storage profile to update
+        :param bytes data: The raw bytes to store
+        :return: The updated blob record's metadata
+        :rtype: DataStreamRecordsBlobMetadataModel
+        """
+        pass
+
+    @abstractmethod
+    def open_blob_stream(self, key: str, blob_key: str) -> bytes:
+        """ Open and read a raw blob's byte stream
+
+        :param str key: The unique key of the data stream
+        :param str blob_key: The unique key of the blob to read
+        :return: The raw blob content
+        :rtype: bytes
+        """
+        pass
+
+    @abstractmethod
+    def find_blobs(self, data_stream_filter: DataStreamFilterModel) -> list[DataStreamBlobSummaryModel]:
+        """ Find data stream blobs matching a filter
+
+        :param DataStreamFilterModel data_stream_filter: The filter to apply to the search
+        :return: Summaries of the matching data stream blobs
+        :rtype: list[DataStreamBlobSummaryModel]
+        """
+        pass
+
+
 class InMotionSession(ABC):
     @abstractmethod
     def disconnect(self) -> None:
@@ -988,6 +1284,15 @@ class InMotionSession(ABC):
 
         :return: The folio management interface
         :rtype: InMotionFolio
+        """
+        pass
+
+    @abstractmethod
+    def data_stream(self) -> InMotionDataStream:
+        """ Retrieve the data stream management interface for the session
+
+        :return: The data stream management interface
+        :rtype: InMotionDataStream
         """
         pass
 
