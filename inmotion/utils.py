@@ -55,7 +55,7 @@ def build_im_headers(dev_key: str, dev_secret: str, content: str ='', extra_name
     return headers
 
 
-def _send_request(method: str, url: str, headers: dict[str, str], data: str, error_message: str,
+def _send_request(method: str, url: str, headers: dict[str, str], data: str | bytes, error_message: str,
                    timeout: int):
     try:
         r = _http_session.request(method, url, headers=headers, data=data if data else None, timeout=timeout)
@@ -76,7 +76,7 @@ def _send_request(method: str, url: str, headers: dict[str, str], data: str, err
     return r
 
 
-def request_json(method: str, url: str, headers: dict[str, str], data: str, error_message: str,
+def request_json(method: str, url: str, headers: dict[str, str], data: str | bytes, error_message: str,
                   model: Optional[Type[T]] = None, timeout: int = DEFAULT_TIMEOUT_SECONDS,
                   many: bool = False) -> T:
     r = _send_request(method, url, headers, data, error_message, timeout)
@@ -90,7 +90,19 @@ def request_json(method: str, url: str, headers: dict[str, str], data: str, erro
         raise InMotionAPIError(f"Malformed response received from inMotion for: {error_message}") from e
 
 
-def request_raw(method: str, url: str, headers: dict[str, str], data: str, error_message: str,
+def request_json_map(method: str, url: str, headers: dict[str, str], data: str | bytes, error_message: str,
+                      model: Type[T], timeout: int = DEFAULT_TIMEOUT_SECONDS) -> dict[str, T]:
+    """ Like request_json, but for endpoints whose JSON response is a genuine map of key -> model
+    instance (e.g. upload uuid -> UploadMetadataModel) rather than a single object or a list. """
+    raw = request_json(method, url, headers, data, error_message, model=None, timeout=timeout)
+    schema = marshmallow_dataclass.class_schema(model)()
+    try:
+        return {key: schema.load(value) for key, value in raw.items()}
+    except Exception as e:
+        raise InMotionAPIError(f"Malformed response received from inMotion for: {error_message}") from e
+
+
+def request_raw(method: str, url: str, headers: dict[str, str], data: str | bytes, error_message: str,
                  timeout: int = DEFAULT_TIMEOUT_SECONDS) -> bytes:
     """ Issue a request and return the raw response body, for endpoints that don't return JSON. """
     r = _send_request(method, url, headers, data, error_message, timeout)

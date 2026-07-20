@@ -6,7 +6,15 @@ import pytest
 import requests
 
 from inmotion.exceptions import InMotionAPIError, InMotionConnectionError
-from inmotion.utils import build_im_headers, create_signature, request_json, request_raw, stringify, stringify_model
+from inmotion.utils import (
+    build_im_headers,
+    create_signature,
+    request_json,
+    request_json_map,
+    request_raw,
+    stringify,
+    stringify_model,
+)
 
 
 @dataclasses.dataclass
@@ -129,6 +137,25 @@ def test_stringify_model_uses_marshmallow_data_key_for_reserved_word_fields():
     result = stringify_model(period)
     assert '"from":"2024-01-01T00:00:00Z"' in result
     assert "from_" not in result
+
+
+def test_request_json_map_loads_a_dict_of_the_model():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {
+        "a": {"name": "a", "value": 1},
+        "b": {"name": "b", "value": 2},
+    }
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
+        result = request_json_map("GET", "http://example.test/x", {}, "", "error", _Sample)
+    assert result == {"a": _Sample(name="a", value=1), "b": _Sample(name="b", value=2)}
+
+
+def test_request_json_map_raises_api_error_on_malformed_entry():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"a": {"unexpected": "shape"}}
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
+        with pytest.raises(InMotionAPIError, match="Malformed response"):
+            request_json_map("GET", "http://example.test/x", {}, "", "error", _Sample)
 
 
 def test_request_raw_returns_response_content():

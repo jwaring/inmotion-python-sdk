@@ -44,6 +44,8 @@ from inmotion.models import (
     TrackRecordsModel,
     UpdateSiteActivityModel,
     UpdateTrackActivityModel,
+    UploadMetadataChangeCommandModel,
+    UploadMetadataModel,
     UserAttributesModel,
     UserPasswordRequestModel,
     UserRegistrationModel,
@@ -701,6 +703,92 @@ class InMotionUser(ABC):
         pass
 
 
+class InMotionUpload(ABC):
+    @abstractmethod
+    def upload_file(self, account: str, file_path: str, content_type: str = 'application/octet-stream') -> dict[str, UploadMetadataModel]:
+        """ Upload a file to the nominated account using a multipart form
+
+        :param str account: The unique key of the account to upload the file to
+        :param str file_path: The path to the local file to upload
+        :param str content_type: The MIME type to declare for the uploaded file
+        :return: A map of the new upload's uuid to its metadata (one entry per uploaded file)
+        :rtype: dict[str, UploadMetadataModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_upload_metadata(self, uuid: str) -> UploadMetadataModel:
+        """ Retrieve the metadata for a specific file upload
+
+        :param str uuid: The unique identifier for the upload
+        :return: The upload's metadata
+        :rtype: UploadMetadataModel
+        """
+        pass
+
+    @abstractmethod
+    def update_upload_metadata(self, uuid: str, change: UploadMetadataChangeCommandModel) -> dict[str, UploadMetadataModel]:
+        """ Update the metadata (mime type, nature, attributes) for a specific file upload
+
+        :param str uuid: The unique identifier for the upload
+        :param UploadMetadataChangeCommandModel change: The metadata changes to apply
+        :return: A single-entry map of the upload's uuid to its updated metadata
+        :rtype: dict[str, UploadMetadataModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_upload_preview(self, uuid: str, nature: str) -> dict:
+        """ Retrieve a preview of an uploaded file's data, interpreted according to the given nature
+
+        :param str uuid: The unique identifier for the upload
+        :param str nature: The nature to interpret the upload as (e.g. 'track', 'route', 'coverage')
+        :return: A raw dict with 'success' and 'preview' keys - the preview shape is nature-dependent
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def process_upload(self, uuid: str) -> dict[str, UploadMetadataModel]:
+        """ Commit/process an uploaded file into inMotion, based on its assigned nature
+
+        :param str uuid: The unique identifier for the upload
+        :return: A single-entry map of the upload's uuid to its updated metadata
+        :rtype: dict[str, UploadMetadataModel]
+        """
+        pass
+
+    @abstractmethod
+    def cancel_upload(self, uuid: str) -> bool:
+        """ Cancel an in-progress upload, removing its tracked state
+
+        :param str uuid: The unique identifier for the upload
+        :return: True if the upload was successfully cancelled
+        :rtype: bool
+        """
+        pass
+
+    @abstractmethod
+    def delete_upload(self, uuid: str) -> bool:
+        """ Delete an upload's tracked state
+
+        :param str uuid: The unique identifier for the upload
+        :return: True if the upload was successfully deleted
+        :rtype: bool
+        """
+        pass
+
+    @abstractmethod
+    def find_uploads(self, account: str) -> dict[str, UploadMetadataModel]:
+        """ Retrieve all tracked uploads for an account
+
+        :param str account: The unique key of the account
+        :return: A map of upload uuid to its metadata
+        :rtype: dict[str, UploadMetadataModel]
+        """
+        pass
+
+
 class InMotionSession(ABC):
     @abstractmethod
     def disconnect(self) -> None:
@@ -758,6 +846,15 @@ class InMotionSession(ABC):
 
         :return: The activity configuration interface
         :rtype: InMotionActivityConfig
+        """
+        pass
+
+    @abstractmethod
+    def upload(self) -> InMotionUpload:
+        """ Retrieve the upload management interface for the session
+
+        :return: The upload management interface
+        :rtype: InMotionUpload
         """
         pass
 

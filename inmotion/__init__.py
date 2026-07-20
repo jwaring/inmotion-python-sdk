@@ -5,6 +5,7 @@ from inmotion.api import (
     InMotionActivityConfig,
     InMotionApiKeys,
     InMotionDevKeys,
+    InMotionUpload,
     InMotionUser,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "InMotionActivityConfig",
     "InMotionApiKeys",
     "InMotionDevKeys",
+    "InMotionUpload",
     "InMotionUser",
 ]

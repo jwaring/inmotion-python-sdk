@@ -11,9 +11,11 @@ from inmotion import (
     InMotionActivityConfig,
     InMotionApiKeys,
     InMotionDevKeys,
+    InMotionUpload,
     InMotionUser,
 )
 from inmotion.models import APICapabilitiesModel
+from inmotion.upload import InMotionUploadImpl
 from inmotion.user import InMotionUserImpl
 from inmotion.utils import build_im_headers, request_json, stringify
 
@@ -50,6 +52,9 @@ class InMotionAPIKeySession(InMotionSession):
 
     def activity_config(self) -> InMotionActivityConfig:
         return InMotionActivityConfigImpl(self)
+
+    def upload(self) -> InMotionUpload:
+        return InMotionUploadImpl(self)
 
     def build_headers(self, content: str) -> dict[str, str]:
         return build_im_headers(dev_key=self._dev_key,

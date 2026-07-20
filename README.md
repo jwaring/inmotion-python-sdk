@@ -172,8 +172,36 @@ user.request_password_reset(UserPasswordRequestModel(userNameOrEmail="jdoe"))
 user.unregister_from_account(account_key)
 ```
 
-Not yet covered by this SDK: Upload, Data Stream, Data Streams, and Folio management — these are
-planned for a follow-up release.
+## Uploads
+
+`session.upload()` manages file uploads (e.g. track/route/coverage data files) and their
+processing lifecycle:
+
+```python
+upload = session.upload()
+
+created = upload.upload_file(account_key, "/path/to/track.gpx", content_type="application/gpx+xml")
+uuid = next(iter(created))
+
+upload.find_upload_metadata(uuid)
+upload.update_upload_metadata(uuid, UploadMetadataChangeCommandModel(
+    mimeType="application/gpx+xml", nature="track", attributes={}))
+
+preview = upload.find_upload_preview(uuid, "track")
+upload.process_upload(uuid)  # commit the upload into inMotion once its nature/metadata are set
+
+upload.cancel_upload(uuid)  # or, once no longer needed:
+upload.delete_upload(uuid)
+
+upload.find_uploads(account_key)  # all tracked uploads for the account
+```
+
+**Note:** `upload_file`'s multipart request signing has been verified against the server's
+signing/verification code (`APIActions.scala`) but not yet against a live inMotion instance —
+test it against `.env.test` before relying on it in production.
+
+Not yet covered by this SDK: Data Stream, Data Streams, and Folio management — these are planned
+for a follow-up release.
 
 # Example
 
