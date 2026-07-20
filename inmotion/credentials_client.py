@@ -4,6 +4,7 @@ from inmotion.activity_config import InMotionActivityConfigImpl
 from inmotion.apikey import InMotionApiKeysImpl
 from inmotion.devkey import InMotionDevKeysImpl
 from inmotion.exceptions import InMotionAuthenticationError
+from inmotion.folio import InMotionFolioImpl
 from inmotion import (
     InMotionSession,
     InMotionActivities,
@@ -11,6 +12,7 @@ from inmotion import (
     InMotionActivityConfig,
     InMotionApiKeys,
     InMotionDevKeys,
+    InMotionFolio,
     InMotionUpload,
     InMotionUser,
 )
@@ -57,6 +59,9 @@ class InMotionCredentialsSession(InMotionSession):
 
     def upload(self) -> InMotionUpload:
         return InMotionUploadImpl(self)
+
+    def folio(self) -> InMotionFolio:
+        return InMotionFolioImpl(self)
 
     def build_headers(self, content: str) -> dict[str, str]:
         return build_im_headers(dev_key=self._dev_key,

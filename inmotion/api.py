@@ -36,6 +36,11 @@ from inmotion.models import (
     ActivityUpdateResponseModel,
     CreateSiteActivityModel,
     CreateTrackActivityModel,
+    FolioDetailsModel,
+    FolioModel,
+    FolioSetDetailsModel,
+    FolioSetModel,
+    FolioSummaryModel,
     LastActivitiesModel,
     MessageResponseModel,
     SiteActivityModel,
@@ -789,6 +794,125 @@ class InMotionUpload(ABC):
         pass
 
 
+class InMotionFolio(ABC):
+    @abstractmethod
+    def create_folio_set(self, folio_set: FolioSetModel) -> FolioSetDetailsModel:
+        """ Create a new folio set
+
+        :param FolioSetModel folio_set: The definition of the folio set to create
+        :return: The created folio set's details
+        :rtype: FolioSetDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_folio_set(self, fs_key: str, folio_set: FolioSetModel) -> FolioSetDetailsModel:
+        """ Update an existing folio set
+
+        :param str fs_key: The unique key of the folio set to update
+        :param FolioSetModel folio_set: The updated definition of the folio set
+        :return: The updated folio set's details
+        :rtype: FolioSetDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def find_folio_set(self, fs_key: str) -> FolioSetDetailsModel:
+        """ Find a folio set by its unique key
+
+        :param str fs_key: The unique key of the folio set
+        :return: The folio set's details
+        :rtype: FolioSetDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def find_folio_sets_by_account(self, account: str, name: str) -> list[FolioSetDetailsModel]:
+        """ Find folio sets belonging to an account by name
+
+        :param str account: The unique key of the account
+        :param str name: The name of the folio set(s) to search for
+        :return: The matching folio sets
+        :rtype: list[FolioSetDetailsModel]
+        """
+        pass
+
+    @abstractmethod
+    def delete_folio_set(self, fs_key: str) -> bool:
+        """ Delete a folio set
+
+        :param str fs_key: The unique key of the folio set to delete
+        :return: True if the folio set was successfully deleted
+        :rtype: bool
+        """
+        pass
+
+    @abstractmethod
+    def create_folio(self, fs_key: str, folio: FolioModel) -> FolioDetailsModel:
+        """ Create a new folio within a folio set
+
+        :param str fs_key: The unique key of the folio set to create the folio in
+        :param FolioModel folio: The definition of the folio to create
+        :return: The created folio's details
+        :rtype: FolioDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_folio(self, fs_key: str, key: str, folio: FolioModel) -> FolioDetailsModel:
+        """ Update an existing folio within a folio set
+
+        :param str fs_key: The unique key of the folio set
+        :param str key: The unique key of the folio to update
+        :param FolioModel folio: The updated definition of the folio
+        :return: The updated folio's details
+        :rtype: FolioDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def find_folio(self, fs_key: str, key: str) -> FolioDetailsModel:
+        """ Find a folio within a folio set by its unique key
+
+        :param str fs_key: The unique key of the folio set
+        :param str key: The unique key of the folio
+        :return: The folio's details
+        :rtype: FolioDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_folio(self, fs_key: str, key: str) -> bool:
+        """ Delete a folio from a folio set
+
+        :param str fs_key: The unique key of the folio set
+        :param str key: The unique key of the folio to delete
+        :return: True if the folio was successfully deleted
+        :rtype: bool
+        """
+        pass
+
+    @abstractmethod
+    def find_folios_by_set(self, fs_key: str) -> list[FolioSummaryModel]:
+        """ Find all folios belonging to a folio set
+
+        :param str fs_key: The unique key of the folio set
+        :return: Summaries of the folios in the set
+        :rtype: list[FolioSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def delete_folios_by_set(self, fs_key: str) -> bool:
+        """ Delete all folios belonging to a folio set
+
+        :param str fs_key: The unique key of the folio set
+        :return: True if the folios were successfully deleted
+        :rtype: bool
+        """
+        pass
+
+
 class InMotionSession(ABC):
     @abstractmethod
     def disconnect(self) -> None:
@@ -855,6 +979,15 @@ class InMotionSession(ABC):
 
         :return: The upload management interface
         :rtype: InMotionUpload
+        """
+        pass
+
+    @abstractmethod
+    def folio(self) -> InMotionFolio:
+        """ Retrieve the folio management interface for the session
+
+        :return: The folio management interface
+        :rtype: InMotionFolio
         """
         pass
 

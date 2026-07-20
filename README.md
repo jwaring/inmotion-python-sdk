@@ -200,8 +200,29 @@ upload.find_uploads(account_key)  # all tracked uploads for the account
 signing/verification code (`APIActions.scala`) but not yet against a live inMotion instance —
 test it against `.env.test` before relying on it in production.
 
-Not yet covered by this SDK: Data Stream, Data Streams, and Folio management — these are planned
-for a follow-up release.
+## Folio
+
+`session.folio()` manages folio sets (named groupings of data streams) and the folios within them:
+
+```python
+folio_api = session.folio()
+
+fs = folio_api.create_folio_set(FolioSetModel(label="Site A", description="...", accountKey=account_key, owner=user_key, created=0))
+folio_api.update_folio_set(fs.key, FolioSetModel(label="Site A (renamed)", description="...", accountKey=account_key, owner=user_key, created=0))
+folio_api.find_folio_set(fs.key)
+folio_api.find_folio_sets_by_account(account_key, "Site A")
+
+f = folio_api.create_folio(fs.key, FolioModel(label="Sensor Group 1", description="...", created=0, attrs={}, streams={}))
+folio_api.find_folio(fs.key, f.key)
+folio_api.find_folios_by_set(fs.key)
+
+folio_api.delete_folio(fs.key, f.key)
+folio_api.delete_folios_by_set(fs.key)
+folio_api.delete_folio_set(fs.key)
+```
+
+Not yet covered by this SDK: Data Stream and Data Streams management — these are planned for a
+follow-up release.
 
 # Example
 
