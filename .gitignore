@@ -2,6 +2,7 @@ __pycache__
 .bsp
 .venv
 .env*
+!.env.example
 .idea
 .python-version
 out
@@ -9,4 +10,4 @@ outputs
 dist
 uv.lock
 /inmotion-python-sdk.iml
-/examples/bom.py
+examples/*.csv

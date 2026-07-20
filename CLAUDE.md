@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is `inmotion`, a Python SDK for integrating with the inMotion API (activity/site/track data
 ingestion, dataset streams, account/user management). It is a fledgling SDK — only a subset of the
-inMotion API surface is implemented in `inmotion/`. The `examples/` directory contains real-world
-usage scripts, including a weather-station data importer and a crane load-cell sensor simulator.
+inMotion API surface is implemented in `inmotion/`. Runnable usage examples live in `examples/` —
+see the "Examples" section of `README.md`.
 
 ## Commands
 
@@ -30,19 +30,10 @@ There is no pytest-based test suite in this repo despite `pytest`/`tox` being li
 dependencies in `pyproject.toml` — `scripts/test.py` is the only existing test entry point, and it
 performs a real network call against a running inMotion instance.
 
-Run the weather-station import example (needs `.env.stations` — see `bin/process-stations.sh` for
-the expected variables: `ROOT_DIR`, `DEV_KEY`, `DEV_SECRET`, `API_KEY`, `ACCOUNT`, `BASE_URL`):
+Publish a local build of the SDK to a wheelhouse directory, so other local projects can depend on
+it without a hardcoded filesystem path (see `bin/publish-local.sh`):
 ```bash
-python3 examples/process_stations.py
-```
-
-Run the crane load-cell simulator example (needs `.env.crane`, copied from `.env.crane.template`):
-```bash
-python examples/crane_load_cell_simulator.py [--window SECONDS] [--delay SECONDS] [--skip-upload] [--seed N] [--output-dir DIR]
-```
-Analyze parquet output from the simulator:
-```bash
-python examples/analyze_crane_data.py --latest --no-plot
+bin/publish-local.sh
 ```
 
 ## Architecture
@@ -95,11 +86,11 @@ etc.). Conventions to follow when adding to it:
 - "Creator"/"Updator" model variants exist alongside the main model for API calls that accept a
   partial or write-only shape (e.g. `AccountAPIKeyCreatorModel` vs `AccountAPIKeyModel`).
 
-### Examples are standalone, not part of the package
+### Examples
 
-Scripts under `examples/` are not imported by `inmotion/` — they're runnable demonstrations that
-import the installed `inmotion` package and drive it against a real or simulated inMotion backend.
-`crane_load_cell_simulator.py` generates synthetic 10Hz load-cell data with layered realistic noise
-and streams windowed statistics to inMotion as a Site activity in real time; `analyze_crane_data.py`
-is its companion inspector for the parquet output. `process_stations.py` imports Australian Bureau
-of Meteorology climate data into inMotion as track/site activities.
+`examples/` has two small, self-contained scripts demonstrating the Site and Track activity APIs:
+`site_timeseries_example.py` generates a synthetic weather-sensor CSV and uploads it as a Site
+activity timeseries; `track_timeseries_example.py` generates a synthetic vehicle-track CSV and
+uploads it as a Track activity timeseries. Each script both generates its own input data and
+uploads it (find-or-create the activity, then publish records) — nothing to fetch, meant to be read
+top-to-bottom. Config is a `.env` file in `examples/` (copy `.env.example`).

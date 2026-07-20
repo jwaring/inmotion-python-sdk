@@ -26,7 +26,6 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = ["pytest", "tox"]
-examples = ["numpy", "pandas"]
 
 [project.scripts]
 inmotion-smoke-test = "scripts.test:main"
