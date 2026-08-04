@@ -5,11 +5,18 @@ from typing import Optional
 from inmotion.api import InMotionSession, InMotionActivities
 from inmotion.models import (
     ActivitiesModel,
+    ActivityAnalyticsRequestModel,
+    ActivityAnalyticsResultModel,
+    ActivityBatchCommandsModel,
+    ActivityBatchResultModel,
     ActivitySearchFilterModel,
+    ActivityTrackMetricsResultModel,
     ActivityUpdateResponseModel,
+    ActivityVariableStatsResultModel,
     CreateSiteActivityModel,
     CreateTrackActivityModel,
     LastActivitiesModel,
+    MasterDataModel,
     SiteActivityModel,
     SiteRecordsModel,
     TrackActivityModel,
@@ -53,6 +60,54 @@ class InMotionActivitiesImpl(InMotionActivities):
                              '',
                              'Failed to load latest activities',
                              LastActivitiesModel)
+
+    def find_latest_activity_stats_by_type(self, since: datetime, coord_conv: str) -> LastActivitiesModel:
+        since_millis = int(since.timestamp() * 1000)
+        postfix_path = f"activities/latest/{self._session.account}/{since_millis}/{coord_conv}"
+        return request_json('GET', f"{self._prefix_path}/{postfix_path}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to load latest activities',
+                             LastActivitiesModel)
+
+    def find_activity_master_data(self) -> MasterDataModel:
+        return request_json('GET', f"{self._prefix_path}/activity/master-data",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve activity master data',
+                             MasterDataModel)
+
+    def find_activity_analytics(self, request: ActivityAnalyticsRequestModel) -> ActivityAnalyticsResultModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/activities/analytics",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to retrieve activity analytics',
+                             ActivityAnalyticsResultModel)
+
+    def find_activity_track_metrics(self, request: ActivityAnalyticsRequestModel) -> ActivityTrackMetricsResultModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/activities/analytics/track-metrics",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to retrieve activity track metrics',
+                             ActivityTrackMetricsResultModel)
+
+    def find_activity_variable_stats(self, request: ActivityAnalyticsRequestModel) -> ActivityVariableStatsResultModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/activities/analytics/variable-stats",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to retrieve activity variable stats',
+                             ActivityVariableStatsResultModel)
+
+    def batch_record_update(self, commands: ActivityBatchCommandsModel) -> list[ActivityBatchResultModel]:
+        commands_data = stringify(commands)
+        return request_json('POST', f"{self._prefix_path}/activities/batch",
+                             self._session.build_headers(content=commands_data),
+                             commands_data,
+                             'Failed to apply batch record update',
+                             ActivityBatchResultModel, many=True)
 
     def create_track_activity(self, ctam: CreateTrackActivityModel) -> ActivityUpdateResponseModel:
         site_data = stringify({

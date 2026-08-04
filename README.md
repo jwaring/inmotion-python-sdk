@@ -93,6 +93,23 @@ The same methods exist for sites (`delete_site_activity`, `unlock_site_activity`
 `find_all_site_records`, `download_site_records`, `share_site_activity`, `unshare_site_activity`,
 `find_shared_site_activity`, `find_shared_site_records`).
 
+Cross-account analytics, a batch create/update endpoint, and activity master data are also
+available:
+
+```python
+activities.find_activity_master_data()  # profile types and activity types
+
+analytics = activities.find_activity_analytics(ActivityAnalyticsRequestModel(groupBy=["activityType"]))
+track_metrics = activities.find_activity_track_metrics(ActivityAnalyticsRequestModel(accounts=[account_key]))
+variable_stats = activities.find_activity_variable_stats(ActivityAnalyticsRequestModel(accounts=[account_key]))
+
+activities.find_latest_activity_stats_by_type(since, CoordinateConvention.TRACK)
+
+activities.batch_record_update(ActivityBatchCommandsModel(
+    tracks=TrackActivityBatchCommandsModel(create=[TrackCreateActivityBatchModel(activity=..., recordInterval=1000)]),
+))
+```
+
 ## Accounts
 
 `session.accounts()` exposes account management operations:
@@ -111,6 +128,35 @@ accounts.batch_update_account_users(account_key, [AccountUpdateBatchCommandModel
 
 new_account = accounts.create_account_only(AccountModel(name="New Co", address=None, accountType="I", attrs={}, profiles=[]))
 accounts.mark_account_for_deletion(account_key, and_user=False)
+
+accounts.find_my_accounts()  # accounts the authenticated user belongs to
+```
+
+It also manages an account's Standard Data Type/Variant Type overrides (submitted as raw YAML
+text, requires the "custom-sdt" account feature) and its Device Config lifecycle (requires the
+"custom-device-config" account feature):
+
+```python
+accounts.list_standard_data_types(account_key)
+accounts.create_standard_data_type(account_key, yaml_document)
+accounts.update_standard_data_type(account_key, key, yaml_document)
+accounts.delete_standard_data_type(account_key, key)
+# ...and the equivalent list/create/update/delete_standard_data_variant_type methods
+
+accounts.fetch_device_configs(account_key)  # merged, consumer-facing fetch
+accounts.list_device_configs(account_key)  # full version history, for an editing UI
+created = accounts.create_device_config(account_key, yaml_document)
+accounts.start_device_config_development(account_key, created["name"])
+accounts.save_device_config(account_key, created["name"], yaml_document)
+accounts.publish_device_config(account_key, created["name"], "1.0.0")
+accounts.withdraw_device_config(account_key, created["name"], 1)
+accounts.republish_device_config(account_key, created["name"], 1)
+accounts.discard_device_config_development(account_key, created["name"])
+accounts.delete_device_config(account_key, created["name"])
+
+# System-wide (non-account-scoped) global tier, and a combined sync delta across global + accounts
+accounts.fetch_global_device_configs()
+accounts.sync_device_configs(DeviceConfigSyncRequestModel(accountKeys=[account_key]))
 ```
 
 ## Activity Configuration
@@ -170,6 +216,9 @@ user.create_user_against_account(account_key, "view", registration)
 
 user.request_password_reset(UserPasswordRequestModel(userNameOrEmail="jdoe"))
 user.unregister_from_account(account_key)
+
+# A one-time code key pair, for device pairing/bootstrap flows
+otc = user.create_otc()
 ```
 
 ## Uploads
@@ -194,6 +243,8 @@ upload.cancel_upload(uuid)  # or, once no longer needed:
 upload.delete_upload(uuid)
 
 upload.find_uploads(account_key)  # all tracked uploads for the account
+
+upload.upload_diagnostics(account_key, "/path/to/crash.log")  # stored server-side, outside the tracked-upload pipeline
 ```
 
 **Note:** `upload_file`'s multipart request signing has been verified against the server's
@@ -202,23 +253,58 @@ test it against `.env.test` before relying on it in production.
 
 ## Folio
 
-`session.folio()` manages folio sets (named groupings of data streams) and the folios within them:
+`session.folio()` manages folios: a tree-structured document attached to an account - a versioned
+root plus an arbitrary tree of named sections, each holding items that are either inline
+structured text or references to an Activity, DataStream, or another Folio.
 
 ```python
 folio_api = session.folio()
 
-fs = folio_api.create_folio_set(FolioSetModel(label="Site A", description="...", accountKey=account_key, owner=user_key, created=0))
-folio_api.update_folio_set(fs.key, FolioSetModel(label="Site A (renamed)", description="...", accountKey=account_key, owner=user_key, created=0))
-folio_api.find_folio_set(fs.key)
-folio_api.find_folio_sets_by_account(account_key, "Site A")
+root = FolioRootModel(attrs={}, items=[], sections=[])
+f = folio_api.create_folio(FolioModel(name="Site A", description="...", accountKey=account_key, owner=user_key, created=0, root=root))
+folio_api.update_folio(f.key, FolioModel(name="Site A (renamed)", description="...", accountKey=account_key, owner=user_key, created=0, root=root))
+folio_api.find_folio(f.key)
+folio_api.find_folios(account_key, name="Site A")
+folio_api.find_folios_by_reference(account_key, data_stream_key)
 
-f = folio_api.create_folio(fs.key, FolioModel(label="Sensor Group 1", description="...", created=0, attrs={}, streams={}))
-folio_api.find_folio(fs.key, f.key)
-folio_api.find_folios_by_set(fs.key)
+# Sections and items are addressed by a "/"-separated `path` from the root (omitted = the root itself)
+folio_api.create_section(f.key, FolioSectionCreateModel(name="Sensors", description="..."))
+folio_api.find_section(f.key, path="Sensors", deep=True)
+folio_api.update_section(f.key, FolioSectionUpdateModel(description="Updated"), path="Sensors")
 
-folio_api.delete_folio(fs.key, f.key)
-folio_api.delete_folios_by_set(fs.key)
-folio_api.delete_folio_set(fs.key)
+folio_api.add_items(f.key, [FolioItemModel(kind="dataStream", name="Reading 1", dataStreamKey=ds_key, owned=True)], path="Sensors")
+folio_api.update_item(f.key, "Reading 1", FolioItemModel(kind="text", name="Reading 1", format="YAML", content="..."), path="Sensors")
+folio_api.delete_item(f.key, "Reading 1", path="Sensors")
+folio_api.delete_items(f.key, ["Reading 2"], path="Sensors", cascade=True)
+
+folio_api.delete_section(f.key, path="Sensors", cascade=True)
+folio_api.validate_folio(f.key)  # check against the folio's optional template, if any
+
+folio_api.delete_folio(f.key)
+```
+
+## Events
+
+`session.events()` manages events: an Activity peer of Track/Site whose payload is arbitrary
+(photo, sqlite file, diagnostics, ...) rather than structured data - a single point in space/time,
+optionally carrying a thumbnail/icon.
+
+```python
+events = session.events()
+
+location = EventLocationModel(latitude=51.5, longitude=-0.1, timeUtc=int(time.time() * 1000))
+event = events.create_event(EventCreatorModel(dataStream=data_stream_creator, location=location))
+
+events.update_event(event.dataStream.key, EventUpdateModel(dataStream=data_stream_creator))
+events.find_event(event.dataStream.key)
+events.unlock_event(event.dataStream.key)
+
+events.find_events(DataStreamFilterModel(accounts=[account_key]))
+events.find_nearby_events(EventNearbyFilterModel(
+    accounts=[account_key], minTime=0, maxTime=int(time.time() * 1000),
+    minLatitude=51.0, maxLatitude=52.0, minLongitude=-1.0, maxLongitude=1.0))
+
+events.delete_event(event.dataStream.key)
 ```
 
 ## Data Streams

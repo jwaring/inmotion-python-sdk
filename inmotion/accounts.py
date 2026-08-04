@@ -11,8 +11,17 @@ from inmotion.models import (
     AccountUpdateBatchResultsModel,
     AccountUserSummaryModel,
     AccountUserUnregisteredModel,
+    DeviceConfigSyncRequestModel,
+    DeviceConfigSyncResultModel,
+    UserAccountSummaryModel,
 )
-from inmotion.utils import request_json, stringify
+from inmotion.utils import request_json, request_json_map, stringify
+
+
+def _text_headers(session: InMotionSession, content: str) -> dict[str, str]:
+    headers = session.build_headers(content=content)
+    headers['Content-Type'] = 'text/plain'
+    return headers
 
 
 class InMotionAccountsImpl(InMotionAccounts):
@@ -88,3 +97,133 @@ class InMotionAccountsImpl(InMotionAccounts):
                              '',
                              'Failed to mark account for deletion',
                              AccountMarkedForDeletionModel)
+
+    def find_my_accounts(self) -> dict[str, UserAccountSummaryModel]:
+        return request_json_map('GET', f"{self._prefix_path}/accounts",
+                                 self._session.build_headers(content=''),
+                                 '',
+                                 'Failed to retrieve accounts',
+                                 UserAccountSummaryModel)
+
+    def fetch_global_device_configs(self) -> dict:
+        return request_json('GET', f"{self._prefix_path}/device-config",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to fetch global device configs')
+
+    def sync_device_configs(self, request: DeviceConfigSyncRequestModel) -> DeviceConfigSyncResultModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/device-config/sync",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to sync device configs',
+                             DeviceConfigSyncResultModel)
+
+    def list_standard_data_types(self, account_key: str) -> list[dict]:
+        return request_json('GET', f"{self._prefix_path}/account/{account_key}/sdt/data-types",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to list standard data types')
+
+    def create_standard_data_type(self, account_key: str, yaml_document: str) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/sdt/data-types",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to create standard data type')
+
+    def update_standard_data_type(self, account_key: str, key: str, yaml_document: str) -> dict:
+        return request_json('PUT', f"{self._prefix_path}/account/{account_key}/sdt/data-types/{key}",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to update standard data type')
+
+    def delete_standard_data_type(self, account_key: str, key: str) -> None:
+        request_json('DELETE', f"{self._prefix_path}/account/{account_key}/sdt/data-types/{key}",
+                     self._session.build_headers(content=''),
+                     '',
+                     'Failed to delete standard data type')
+
+    def list_standard_data_variant_types(self, account_key: str) -> list[dict]:
+        return request_json('GET', f"{self._prefix_path}/account/{account_key}/sdt/data-variant-types",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to list standard data variant types')
+
+    def create_standard_data_variant_type(self, account_key: str, yaml_document: str) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/sdt/data-variant-types",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to create standard data variant type')
+
+    def update_standard_data_variant_type(self, account_key: str, key: str, yaml_document: str) -> dict:
+        return request_json('PUT', f"{self._prefix_path}/account/{account_key}/sdt/data-variant-types/{key}",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to update standard data variant type')
+
+    def delete_standard_data_variant_type(self, account_key: str, key: str) -> None:
+        request_json('DELETE', f"{self._prefix_path}/account/{account_key}/sdt/data-variant-types/{key}",
+                     self._session.build_headers(content=''),
+                     '',
+                     'Failed to delete standard data variant type')
+
+    def fetch_device_configs(self, account_key: str, preview: bool = False) -> dict:
+        qs = '?preview=true' if preview else ''
+        return request_json('GET', f"{self._prefix_path}/account/{account_key}/device-config{qs}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to fetch device configs')
+
+    def list_device_configs(self, account_key: str) -> dict:
+        return request_json('GET', f"{self._prefix_path}/account/{account_key}/device-configs",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to list device configs')
+
+    def create_device_config(self, account_key: str, yaml_document: str) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/device-configs",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to create device config')
+
+    def save_device_config(self, account_key: str, name: str, yaml_document: str) -> dict:
+        return request_json('PUT', f"{self._prefix_path}/account/{account_key}/device-configs/{name}",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to save device config')
+
+    def delete_device_config(self, account_key: str, name: str) -> None:
+        request_json('DELETE', f"{self._prefix_path}/account/{account_key}/device-configs/{name}",
+                     self._session.build_headers(content=''),
+                     '',
+                     'Failed to delete device config')
+
+    def start_device_config_development(self, account_key: str, name: str) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/device-configs/{name}/development",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to start device config development')
+
+    def discard_device_config_development(self, account_key: str, name: str) -> None:
+        request_json('DELETE', f"{self._prefix_path}/account/{account_key}/device-configs/{name}/development",
+                     self._session.build_headers(content=''),
+                     '',
+                     'Failed to discard device config development')
+
+    def publish_device_config(self, account_key: str, name: str, semantic_version: str) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/device-configs/{name}/publish?semanticVersion={semantic_version}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to publish device config')
+
+    def withdraw_device_config(self, account_key: str, name: str, version: int) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/device-configs/{name}/{version}/withdraw",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to withdraw device config')
+
+    def republish_device_config(self, account_key: str, name: str, version: int) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/device-configs/{name}/{version}/republish",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to republish device config')

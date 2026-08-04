@@ -2,6 +2,7 @@ from inmotion.api import InMotionSession, InMotionUser
 from inmotion.models import (
     AccountUserSummaryModel,
     MessageResponseModel,
+    OTCModel,
     UserAttributesModel,
     UserPasswordRequestModel,
     UserRegistrationModel,
@@ -52,3 +53,10 @@ class InMotionUserImpl(InMotionUser):
                              '',
                              'Failed to unregister from account',
                              UserUnregisteredResponseModel)
+
+    def create_otc(self) -> OTCModel:
+        return request_json('GET', f"{self._prefix_path}/otc",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to create one-time code',
+                             OTCModel)

@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from inmotion.activities import InMotionActivitiesImpl
-from inmotion.models import ActivityUpdateResponseModel
+from inmotion.models import ActivityAnalyticsRequestModel, ActivityBatchCommandsModel, ActivityUpdateResponseModel, CoordinateConvention
 
 
 def _fake_session():
@@ -194,3 +195,71 @@ def test_find_shared_site_records_issues_a_get_with_time_range():
     assert mock_request_json.call_args.args[0] == "GET"
     called_url = mock_request_json.call_args.args[1]
     assert called_url.startswith("http://example.test/api/v2/activity/site/shared/records/site1/")
+
+
+def test_find_latest_activity_stats_by_type_includes_cc_segment():
+    session = _fake_session()
+    impl = InMotionActivitiesImpl(session)
+
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_latest_activity_stats_by_type(datetime(2024, 1, 1, tzinfo=timezone.utc), CoordinateConvention.TRACK)
+
+    assert mock_request_json.call_args.args[0] == "GET"
+    called_url = mock_request_json.call_args.args[1]
+    assert called_url.startswith("http://example.test/api/v2/activities/latest/my-account/")
+    assert called_url.endswith(f"/{CoordinateConvention.TRACK}")
+
+
+def test_find_activity_master_data_issues_a_get():
+    session = _fake_session()
+    impl = InMotionActivitiesImpl(session)
+
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_activity_master_data()
+
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activity/master-data"
+
+
+def test_find_activity_analytics_posts_the_request_body():
+    session = _fake_session()
+    impl = InMotionActivitiesImpl(session)
+
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_activity_analytics(ActivityAnalyticsRequestModel(accounts=["acct1"]))
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activities/analytics"
+    assert '"acct1"' in mock_request_json.call_args.args[3]
+
+
+def test_find_activity_track_metrics_uses_track_metrics_path():
+    session = _fake_session()
+    impl = InMotionActivitiesImpl(session)
+
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_activity_track_metrics(ActivityAnalyticsRequestModel())
+
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activities/analytics/track-metrics"
+
+
+def test_find_activity_variable_stats_uses_variable_stats_path():
+    session = _fake_session()
+    impl = InMotionActivitiesImpl(session)
+
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_activity_variable_stats(ActivityAnalyticsRequestModel())
+
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activities/analytics/variable-stats"
+
+
+def test_batch_record_update_posts_commands_and_uses_many_true():
+    session = _fake_session()
+    impl = InMotionActivitiesImpl(session)
+
+    with patch("inmotion.activities.request_json", return_value=[]) as mock_request_json:
+        impl.batch_record_update(ActivityBatchCommandsModel())
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activities/batch"
+    assert mock_request_json.call_args.kwargs["many"] is True

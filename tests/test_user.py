@@ -80,3 +80,14 @@ def test_unregister_from_account_issues_a_put():
 
     assert mock_request_json.call_args.args[0] == "PUT"
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/user/unregister/acct1"
+
+
+def test_create_otc_issues_a_get_at_root_level_otc_path():
+    session = _fake_session()
+    impl = InMotionUserImpl(session)
+
+    with patch("inmotion.user.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.create_otc()
+
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/otc"

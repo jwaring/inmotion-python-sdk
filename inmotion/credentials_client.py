@@ -4,6 +4,7 @@ from inmotion.activity_config import InMotionActivityConfigImpl
 from inmotion.apikey import InMotionApiKeysImpl
 from inmotion.datastream import InMotionDataStreamImpl
 from inmotion.devkey import InMotionDevKeysImpl
+from inmotion.event import InMotionEventsImpl
 from inmotion.exceptions import InMotionAuthenticationError
 from inmotion.folio import InMotionFolioImpl
 from inmotion import (
@@ -14,6 +15,7 @@ from inmotion import (
     InMotionApiKeys,
     InMotionDataStream,
     InMotionDevKeys,
+    InMotionEvents,
     InMotionFolio,
     InMotionUpload,
     InMotionUser,
@@ -46,6 +48,9 @@ class InMotionCredentialsSession(InMotionSession):
 
     def accounts(self) -> InMotionAccounts:
         return InMotionAccountsImpl(self)
+
+    def events(self) -> InMotionEvents:
+        return InMotionEventsImpl(self)
 
     def dev_keys(self) -> InMotionDevKeys:
         return InMotionDevKeysImpl(self)

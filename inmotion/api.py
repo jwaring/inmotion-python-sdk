@@ -31,9 +31,15 @@ from inmotion.models import (
     ActivityConfigProcessingUpdateModel,
     ActivityConfigQCRegionGenerateRequestModel,
     ActivityConfigQCRegionGenerateResultModel,
+    ActivityAnalyticsRequestModel,
+    ActivityAnalyticsResultModel,
+    ActivityBatchCommandsModel,
+    ActivityBatchResultModel,
     ActivityConfigQCUpdateModel,
     ActivitySearchFilterModel,
+    ActivityTrackMetricsResultModel,
     ActivityUpdateResponseModel,
+    ActivityVariableStatsResultModel,
     CreateSiteActivityModel,
     CreateTrackActivityModel,
     DataChannelCreatorModel,
@@ -44,13 +50,26 @@ from inmotion.models import (
     DataStreamInvariantBlobMetadataModel,
     DataStreamRecordsBlobMetadataModel,
     DataStreamSummaryModel,
+    DeviceConfigSyncRequestModel,
+    DeviceConfigSyncResultModel,
+    EventCreatorModel,
+    EventDetailsModel,
+    EventLocationSummaryModel,
+    EventNearbyFilterModel,
+    EventUpdateModel,
     FolioDetailsModel,
+    FolioItemModel,
     FolioModel,
-    FolioSetDetailsModel,
-    FolioSetModel,
+    FolioRootModel,
+    FolioSectionCreateModel,
+    FolioSectionModel,
+    FolioSectionUpdateModel,
     FolioSummaryModel,
+    FolioValidationReportModel,
     LastActivitiesModel,
+    MasterDataModel,
     MessageResponseModel,
+    OTCModel,
     SiteActivityModel,
     SiteRecordsModel,
     TrackActivityModel,
@@ -59,6 +78,7 @@ from inmotion.models import (
     UpdateTrackActivityModel,
     UploadMetadataChangeCommandModel,
     UploadMetadataModel,
+    UserAccountSummaryModel,
     UserAttributesModel,
     UserPasswordRequestModel,
     UserRegistrationModel,
@@ -98,6 +118,69 @@ class InMotionActivities(ABC):
         :param int max_records: The maximum number of records to return
         :return: The latest activities since the specified date
         :rtype: LastActivitiesModel
+        """
+        pass
+
+    @abstractmethod
+    def find_latest_activity_stats_by_type(self, since: datetime, coord_conv: str) -> LastActivitiesModel:
+        """ Retrieve the latest records for all activities of a specific Coordinate Convention since the provided date
+
+        :param datetime since: The date/time to search from
+        :param str coord_conv: The Coordinate Convention to restrict results to (see CoordinateConvention)
+        :return: The latest activities since the specified date
+        :rtype: LastActivitiesModel
+        """
+        pass
+
+    @abstractmethod
+    def find_activity_master_data(self) -> MasterDataModel:
+        """ Fetch master data related to activities (profile types and activity types)
+
+        :return: The activity master data
+        :rtype: MasterDataModel
+        """
+        pass
+
+    @abstractmethod
+    def find_activity_analytics(self, request: ActivityAnalyticsRequestModel) -> ActivityAnalyticsResultModel:
+        """ Retrieve grouped activity counts across one or more accounts (or, if none are
+        supplied, every account the caller can access)
+
+        :param ActivityAnalyticsRequestModel request: The accounts, filter, and grouping to apply
+        :return: The grouped activity counts
+        :rtype: ActivityAnalyticsResultModel
+        """
+        pass
+
+    @abstractmethod
+    def find_activity_track_metrics(self, request: ActivityAnalyticsRequestModel) -> ActivityTrackMetricsResultModel:
+        """ Retrieve aggregate track metrics (distance/ascent/descent/duration/speed) across one
+        or more accounts, for TRACK-kind activities only
+
+        :param ActivityAnalyticsRequestModel request: The accounts, filter, and grouping to apply
+        :return: The grouped track metrics
+        :rtype: ActivityTrackMetricsResultModel
+        """
+        pass
+
+    @abstractmethod
+    def find_activity_variable_stats(self, request: ActivityAnalyticsRequestModel) -> ActivityVariableStatsResultModel:
+        """ Retrieve aggregate, per-standard-data-type variable statistics across one or more
+        accounts, for TRACK-kind activities only
+
+        :param ActivityAnalyticsRequestModel request: The accounts, filter, and grouping to apply
+        :return: The grouped variable statistics
+        :rtype: ActivityVariableStatsResultModel
+        """
+        pass
+
+    @abstractmethod
+    def batch_record_update(self, commands: ActivityBatchCommandsModel) -> list[ActivityBatchResultModel]:
+        """ Apply a batch of track and/or site activity create/update commands in a single request
+
+        :param ActivityBatchCommandsModel commands: The batch of track and/or site commands to apply
+        :return: The per-command results, matched back to their command via `seqKey`
+        :rtype: list[ActivityBatchResultModel]
         """
         pass
 
@@ -362,6 +445,84 @@ class InMotionActivities(ABC):
         pass
 
 
+class InMotionEvents(ABC):
+    """ Event management: an Activity peer of Track/Site whose payload is arbitrary (photo,
+    sqlite file, diagnostics, ...) rather than structured hyperslab data. An event is a single
+    point in space/time, optionally carrying a thumbnail/icon. """
+
+    @abstractmethod
+    def create_event(self, event: EventCreatorModel) -> EventDetailsModel:
+        """ Create an event associated with a specific account
+
+        :param EventCreatorModel event: The definition of the event to create. A captured
+            location is required; a thumbnail/icon is optional.
+        :return: The created event's details
+        :rtype: EventDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_event(self, key: str, event: EventUpdateModel) -> EventDetailsModel:
+        """ Update an existing event's underlying data stream metadata, and optionally its
+        captured location and/or thumbnail. Omitting `location` or `thumbnail` leaves the
+        existing value unchanged - there is no way to clear either back to unset once set.
+
+        :param str key: The unique key of the event to update
+        :param EventUpdateModel event: The updated definition of the event
+        :return: The updated event's details
+        :rtype: EventDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def find_event(self, key: str) -> EventDetailsModel:
+        """ Find an event by its unique key
+
+        :param str key: The unique key of the event
+        :return: The event's details
+        :rtype: EventDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_event(self, key: str) -> None:
+        """ Delete an event by its unique key, along with all of its associated data
+
+        :param str key: The unique key of the event to delete
+        """
+        pass
+
+    @abstractmethod
+    def unlock_event(self, key: str) -> None:
+        """ Unlock an event so that it can be modified or updated again after having been locked
+
+        :param str key: The unique key of the event to unlock
+        """
+        pass
+
+    @abstractmethod
+    def find_events(self, data_stream_filter: DataStreamFilterModel) -> list[DataStreamSummaryModel]:
+        """ Find event summaries matching a data stream filter (account, name, source, etc.),
+        constrained server-side to events regardless of what's supplied
+
+        :param DataStreamFilterModel data_stream_filter: The filter to apply to the search
+        :return: Summaries of the matching events
+        :rtype: list[DataStreamSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_nearby_events(self, nearby_filter: EventNearbyFilterModel) -> list[EventLocationSummaryModel]:
+        """ Find events within a spatio-temporal bounding box, constrained to a supplied set of
+        accounts (never unconstrained - an empty `accounts` list returns no results)
+
+        :param EventNearbyFilterModel nearby_filter: The accounts and spatio-temporal bounds to search
+        :return: The events found within the requested window
+        :rtype: list[EventLocationSummaryModel]
+        """
+        pass
+
+
 class InMotionAccounts(ABC):
     @abstractmethod
     def find_account(self, account_key: str) -> AccountDetailsModel:
@@ -456,6 +617,261 @@ class InMotionAccounts(ABC):
         :param bool and_user: Whether the associated user should also be marked for deletion
         :return: The result of the mark-for-deletion operation
         :rtype: AccountMarkedForDeletionModel
+        """
+        pass
+
+    @abstractmethod
+    def find_my_accounts(self) -> dict[str, UserAccountSummaryModel]:
+        """ Fetch the accounts associated with the authenticated user
+
+        :return: A map of account key to the caller's summary of that account
+        :rtype: dict[str, UserAccountSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def fetch_global_device_configs(self) -> dict:
+        """ Fetch the system-wide default Device Configs (global tier), for runtime consumers to
+        merge with an account's own tier themselves - never merged here. Not account-scoped.
+
+        :return: A raw dict shaped `{ deviceConfigs: [{name, version, yaml}] }`
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def sync_device_configs(self, request: DeviceConfigSyncRequestModel) -> DeviceConfigSyncResultModel:
+        """ Fetch only the Device Config changes (global tier and a set of accounts) since a
+        given time, in one call
+
+        :param DeviceConfigSyncRequestModel request: The sync window and accounts to include
+        :return: The delta - entries changed since `since`, plus tombstones
+        :rtype: DeviceConfigSyncResultModel
+        """
+        pass
+
+    @abstractmethod
+    def list_standard_data_types(self, account_key: str) -> list[dict]:
+        """ List every Standard Data Type entry (global and account, each tagged its own
+        `source`) visible to an account. Requires the "custom-sdt" account feature.
+
+        :param str account_key: The unique key of the account
+        :return: Every Standard Data Type entry, as raw dicts (no fixed schema is declared server-side)
+        :rtype: list[dict]
+        """
+        pass
+
+    @abstractmethod
+    def create_standard_data_type(self, account_key: str, yaml_document: str) -> dict:
+        """ Create an account-scoped Standard Data Type override. Requires the "custom-sdt"
+        account feature. Fails if the account already has an override at the document's own
+        `key`, or the document references an unknown `variant-type`.
+
+        :param str account_key: The unique key of the account
+        :param str yaml_document: A standalone single-entry YAML document; its identity is its own `key` field
+        :return: The created Standard Data Type entry, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_standard_data_type(self, account_key: str, key: str, yaml_document: str) -> dict:
+        """ Update an account-scoped Standard Data Type override. Fails if no override exists yet
+        at `key` (use create instead), or if the document's own `key` field doesn't match.
+        Requires the "custom-sdt" account feature.
+
+        :param str account_key: The unique key of the account
+        :param str key: The key of the Standard Data Type override to update
+        :param str yaml_document: The replacement standalone single-entry YAML document
+        :return: The updated Standard Data Type entry, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def delete_standard_data_type(self, account_key: str, key: str) -> None:
+        """ Delete an account-scoped Standard Data Type override. Idempotent. Requires the
+        "custom-sdt" account feature.
+
+        :param str account_key: The unique key of the account
+        :param str key: The key of the Standard Data Type override to delete
+        """
+        pass
+
+    @abstractmethod
+    def list_standard_data_variant_types(self, account_key: str) -> list[dict]:
+        """ List every Standard Data Variant Type entry (global and account, each tagged its own
+        `source`) visible to an account. Requires the "custom-sdt" account feature.
+
+        :param str account_key: The unique key of the account
+        :return: Every Standard Data Variant Type entry, as raw dicts
+        :rtype: list[dict]
+        """
+        pass
+
+    @abstractmethod
+    def create_standard_data_variant_type(self, account_key: str, yaml_document: str) -> dict:
+        """ Create an account-scoped Standard Data Variant Type override. Requires the
+        "custom-sdt" account feature. Fails if the account already has an override at the
+        document's own `key`.
+
+        :param str account_key: The unique key of the account
+        :param str yaml_document: A standalone single-entry YAML document; its identity is its own `key` field
+        :return: The created Standard Data Variant Type entry, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_standard_data_variant_type(self, account_key: str, key: str, yaml_document: str) -> dict:
+        """ Update an account-scoped Standard Data Variant Type override. Fails if no override
+        exists yet at `key`, or if the document's own `key` field doesn't match. Requires the
+        "custom-sdt" account feature.
+
+        :param str account_key: The unique key of the account
+        :param str key: The key of the Standard Data Variant Type override to update
+        :param str yaml_document: The replacement standalone single-entry YAML document
+        :return: The updated Standard Data Variant Type entry, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def delete_standard_data_variant_type(self, account_key: str, key: str) -> None:
+        """ Delete an account-scoped Standard Data Variant Type override. Fails, naming the
+        referencing Data Type keys, if any of the account's own Data Types currently reference
+        this variant type. Idempotent otherwise. Requires the "custom-sdt" account feature.
+
+        :param str account_key: The unique key of the account
+        :param str key: The key of the Standard Data Variant Type override to delete
+        """
+        pass
+
+    @abstractmethod
+    def fetch_device_configs(self, account_key: str, preview: bool = False) -> dict:
+        """ Fetch an account's own tier of Device Configs, for runtime consumers to merge with
+        the global tier themselves - never merged here. Always succeeds with an empty list if
+        nothing has been published yet.
+
+        :param str account_key: The unique key of the account
+        :param bool preview: If True, serves the in-progress development version per name where
+            one exists (falling back to published) - restricted to the account's admins/owners
+        :return: A raw dict shaped `{ deviceConfigs: [{name, version, yaml}] }`
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def list_device_configs(self, account_key: str) -> dict:
+        """ List every version of every one of the account's named Device Configs, for an
+        editing UI. Requires the "custom-device-config" account feature.
+
+        :param str account_key: The unique key of the account
+        :return: A raw dict shaped `{ deviceConfigs: [...] }`
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def create_device_config(self, account_key: str, yaml_document: str) -> dict:
+        """ Validate and create a brand-new Device Config at version 1, status development.
+        Requires the "custom-device-config" account feature. Fails if a Device Config with that
+        name already exists for this account.
+
+        :param str account_key: The unique key of the account
+        :param str yaml_document: The Device Config document; its identity is its own `profile.name` field
+        :return: The new Device Config's id/version/status/yaml/updatedAt/updatedBy, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def save_device_config(self, account_key: str, name: str, yaml_document: str) -> dict:
+        """ Validate and save new content to the current development version of a named Device
+        Config, in place. Requires the "custom-device-config" account feature. Fails if no
+        development version is in progress.
+
+        :param str account_key: The unique key of the account
+        :param str name: The name of the Device Config
+        :param str yaml_document: The replacement Device Config document
+        :return: The updated Device Config version, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def delete_device_config(self, account_key: str, name: str) -> None:
+        """ Delete every version of a named Device Config. Requires the "custom-device-config"
+        account feature. Idempotent.
+
+        :param str account_key: The unique key of the account
+        :param str name: The name of the Device Config to delete
+        """
+        pass
+
+    @abstractmethod
+    def start_device_config_development(self, account_key: str, name: str) -> dict:
+        """ Branch a new development version off the current published one for an existing name.
+        Requires the "custom-device-config" account feature. Fails if the name does not exist yet
+        (use create), a development version is already in progress, or there is no published
+        version to branch from.
+
+        :param str account_key: The unique key of the account
+        :param str name: The name of the Device Config
+        :return: The new development version, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def discard_device_config_development(self, account_key: str, name: str) -> None:
+        """ Delete the current development version outright, without publishing it. Requires the
+        "custom-device-config" account feature. Idempotent - succeeds even if none is in progress.
+
+        :param str account_key: The unique key of the account
+        :param str name: The name of the Device Config
+        """
+        pass
+
+    @abstractmethod
+    def publish_device_config(self, account_key: str, name: str, semantic_version: str) -> dict:
+        """ Flip the current development version's status to published in place. Requires the
+        "custom-device-config" account feature. Fails if no development version is in progress,
+        or if `semantic_version` is not strictly greater than this name's current published
+        semantic version (if any).
+
+        :param str account_key: The unique key of the account
+        :param str name: The name of the Device Config
+        :param str semantic_version: The human-authored major.minor.patch version for this publish
+        :return: The now-published version, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def withdraw_device_config(self, account_key: str, name: str, version: int) -> dict:
+        """ Hide one published Device Config version from consumer-facing fetch/sync/search/
+        download without deleting it. Requires the "custom-device-config" account feature. Fails
+        if that version isn't published.
+
+        :param str account_key: The unique key of the account
+        :param str name: The name of the Device Config
+        :param int version: The published version to withdraw
+        :return: The now-withdrawn version, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def republish_device_config(self, account_key: str, name: str, version: int) -> dict:
+        """ Reverse a withdraw. Requires the "custom-device-config" account feature. Idempotent -
+        succeeds even if the version wasn't withdrawn.
+
+        :param str account_key: The unique key of the account
+        :param str name: The name of the Device Config
+        :param int version: The withdrawn version to republish
+        :return: The now-republished version, as a raw dict
+        :rtype: dict
         """
         pass
 
@@ -715,6 +1131,17 @@ class InMotionUser(ABC):
         """
         pass
 
+    @abstractmethod
+    def create_otc(self) -> OTCModel:
+        """ Create a one-time code (OTC) key pair for the authenticated user, used to support
+        device pairing/bootstrap flows. Requires a developer key, which is used to encrypt the
+        returned private key.
+
+        :return: The new one-time code's public/private key pair
+        :rtype: OTCModel
+        """
+        pass
+
 
 class InMotionUpload(ABC):
     @abstractmethod
@@ -801,76 +1228,41 @@ class InMotionUpload(ABC):
         """
         pass
 
+    @abstractmethod
+    def upload_diagnostics(self, account: str, file_path: str, content_type: str = 'application/octet-stream') -> list[str]:
+        """ Upload a diagnostics file (e.g. a crash log or device dump) for a specific account,
+        stored server-side without going through the tracked-upload/process pipeline
+
+        :param str account: The unique key of the account to upload the file to
+        :param str file_path: The path to the local file to upload
+        :param str content_type: The MIME type to declare for the uploaded file
+        :return: The server-assigned filename(s) the diagnostics file was stored under
+        :rtype: list[str]
+        """
+        pass
+
 
 class InMotionFolio(ABC):
-    @abstractmethod
-    def create_folio_set(self, folio_set: FolioSetModel) -> FolioSetDetailsModel:
-        """ Create a new folio set
-
-        :param FolioSetModel folio_set: The definition of the folio set to create
-        :return: The created folio set's details
-        :rtype: FolioSetDetailsModel
-        """
-        pass
+    """ Folio management: a tree-structured document attached to an account - a versioned root
+    plus an arbitrary tree of named sections, each holding items that are either inline
+    structured text or references to an Activity, DataStream, or another Folio. """
 
     @abstractmethod
-    def update_folio_set(self, fs_key: str, folio_set: FolioSetModel) -> FolioSetDetailsModel:
-        """ Update an existing folio set
+    def create_folio(self, folio: FolioModel) -> FolioDetailsModel:
+        """ Create a new, top-level, account-owned folio
 
-        :param str fs_key: The unique key of the folio set to update
-        :param FolioSetModel folio_set: The updated definition of the folio set
-        :return: The updated folio set's details
-        :rtype: FolioSetDetailsModel
-        """
-        pass
-
-    @abstractmethod
-    def find_folio_set(self, fs_key: str) -> FolioSetDetailsModel:
-        """ Find a folio set by its unique key
-
-        :param str fs_key: The unique key of the folio set
-        :return: The folio set's details
-        :rtype: FolioSetDetailsModel
-        """
-        pass
-
-    @abstractmethod
-    def find_folio_sets_by_account(self, account: str, name: str) -> list[FolioSetDetailsModel]:
-        """ Find folio sets belonging to an account by name
-
-        :param str account: The unique key of the account
-        :param str name: The name of the folio set(s) to search for
-        :return: The matching folio sets
-        :rtype: list[FolioSetDetailsModel]
-        """
-        pass
-
-    @abstractmethod
-    def delete_folio_set(self, fs_key: str) -> bool:
-        """ Delete a folio set
-
-        :param str fs_key: The unique key of the folio set to delete
-        :return: True if the folio set was successfully deleted
-        :rtype: bool
-        """
-        pass
-
-    @abstractmethod
-    def create_folio(self, fs_key: str, folio: FolioModel) -> FolioDetailsModel:
-        """ Create a new folio within a folio set
-
-        :param str fs_key: The unique key of the folio set to create the folio in
-        :param FolioModel folio: The definition of the folio to create
+        :param FolioModel folio: The definition of the folio to create. `templateYaml` may be
+            supplied to attach a validation template, fixed for the folio's lifetime.
         :return: The created folio's details
         :rtype: FolioDetailsModel
         """
         pass
 
     @abstractmethod
-    def update_folio(self, fs_key: str, key: str, folio: FolioModel) -> FolioDetailsModel:
-        """ Update an existing folio within a folio set
+    def update_folio(self, key: str, folio: FolioModel) -> FolioDetailsModel:
+        """ Update a folio's own metadata (name, description, folioType). Does not touch its
+        section tree - use the section/item methods below for that.
 
-        :param str fs_key: The unique key of the folio set
         :param str key: The unique key of the folio to update
         :param FolioModel folio: The updated definition of the folio
         :return: The updated folio's details
@@ -879,10 +1271,9 @@ class InMotionFolio(ABC):
         pass
 
     @abstractmethod
-    def find_folio(self, fs_key: str, key: str) -> FolioDetailsModel:
-        """ Find a folio within a folio set by its unique key
+    def find_folio(self, key: str) -> FolioDetailsModel:
+        """ Find a folio by its unique key, including its full section tree
 
-        :param str fs_key: The unique key of the folio set
         :param str key: The unique key of the folio
         :return: The folio's details
         :rtype: FolioDetailsModel
@@ -890,33 +1281,146 @@ class InMotionFolio(ABC):
         pass
 
     @abstractmethod
-    def delete_folio(self, fs_key: str, key: str) -> bool:
-        """ Delete a folio from a folio set
+    def delete_folio(self, key: str) -> None:
+        """ Delete a folio by its unique key, along with its entire section tree
 
-        :param str fs_key: The unique key of the folio set
         :param str key: The unique key of the folio to delete
-        :return: True if the folio was successfully deleted
-        :rtype: bool
         """
         pass
 
     @abstractmethod
-    def find_folios_by_set(self, fs_key: str) -> list[FolioSummaryModel]:
-        """ Find all folios belonging to a folio set
+    def find_folios(self, account_key: str, name: Optional[str] = None, folio_type: Optional[str] = None) -> list[FolioSummaryModel]:
+        """ List folio summaries for an account, optionally filtered by name and/or folio type
 
-        :param str fs_key: The unique key of the folio set
-        :return: Summaries of the folios in the set
+        :param str account_key: The unique key of the account
+        :param Optional[str] name: An optional name to filter by
+        :param Optional[str] folio_type: An optional folio type to filter by
+        :return: The matching folio summaries
         :rtype: list[FolioSummaryModel]
         """
         pass
 
     @abstractmethod
-    def delete_folios_by_set(self, fs_key: str) -> bool:
-        """ Delete all folios belonging to a folio set
+    def find_folios_by_reference(self, account_key: str, ref_key: str) -> list[FolioSummaryModel]:
+        """ List folio summaries for an account that contain at least one item (Activity,
+        DataStream, or Folio reference) pointing at the given key
 
-        :param str fs_key: The unique key of the folio set
-        :return: True if the folios were successfully deleted
-        :rtype: bool
+        :param str account_key: The unique key of the account
+        :param str ref_key: The key of the referenced Activity, DataStream, or Folio
+        :return: The matching folio summaries
+        :rtype: list[FolioSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_section(self, key: str, path: Optional[str] = None, deep: bool = False) -> FolioRootModel | FolioSectionModel:
+        """ Find the root or a named section of a folio's tree, addressed by `path`
+
+        :param str key: The unique key of the folio
+        :param Optional[str] path: "/"-separated section path from the root, e.g.
+            "Eye Tests/2026-08-04". Omitted or empty addresses the root.
+        :param bool deep: If True, include the full subtree beneath the addressed section, not
+            just its immediate children
+        :return: The root (if `path` addresses it) or the section at `path`
+        :rtype: FolioRootModel | FolioSectionModel
+        """
+        pass
+
+    @abstractmethod
+    def create_section(self, key: str, section: FolioSectionCreateModel, path: Optional[str] = None) -> None:
+        """ Add a new named section as a child of the section (or root) addressed by `path`
+
+        :param str key: The unique key of the folio
+        :param FolioSectionCreateModel section: The definition of the section to create
+        :param Optional[str] path: "/"-separated parent section path from the root. Omitted or
+            empty adds the new section directly beneath the root.
+        """
+        pass
+
+    @abstractmethod
+    def update_section(self, key: str, section: FolioSectionUpdateModel, path: Optional[str] = None) -> None:
+        """ Update the section (or root) addressed by `path`. Only the fields supplied on
+        `section` change; omitted fields are left as-is.
+
+        :param str key: The unique key of the folio
+        :param FolioSectionUpdateModel section: The fields to update
+        :param Optional[str] path: "/"-separated section path from the root. Omitted or empty
+            addresses the root.
+        """
+        pass
+
+    @abstractmethod
+    def delete_section(self, key: str, path: Optional[str] = None, cascade: bool = False) -> None:
+        """ Delete the section addressed by `path` (the root itself cannot be deleted this way -
+        use delete_folio instead)
+
+        :param str key: The unique key of the folio
+        :param Optional[str] path: "/"-separated section path from the root
+        :param bool cascade: If True, delete the section's contents (sub-sections and items)
+            along with it - otherwise fails if the section has children
+        """
+        pass
+
+    @abstractmethod
+    def add_items(self, key: str, items: list[FolioItemModel], path: Optional[str] = None) -> None:
+        """ Add one or more items to the section (or root) addressed by `path`
+
+        :param str key: The unique key of the folio
+        :param list[FolioItemModel] items: The items to add - each item's `kind` selects its shape
+        :param Optional[str] path: "/"-separated section path from the root. Omitted or empty
+            addresses the root.
+        """
+        pass
+
+    @abstractmethod
+    def delete_items(self, key: str, item_names: list[str], path: Optional[str] = None, cascade: bool = False) -> None:
+        """ Delete one or more named items from the section (or root) addressed by `path`
+
+        :param str key: The unique key of the folio
+        :param list[str] item_names: The names of the items to delete
+        :param Optional[str] path: "/"-separated section path from the root. Omitted or empty
+            addresses the root.
+        :param bool cascade: If True, and an item is an owned reference (Activity/DataStream/
+            Folio), also delete the referenced entity
+        """
+        pass
+
+    @abstractmethod
+    def update_item(self, key: str, item_name: str, item: FolioItemModel, path: Optional[str] = None) -> None:
+        """ Replace a named item in the section (or root) addressed by `path`
+
+        :param str key: The unique key of the folio
+        :param str item_name: The name of the item to replace
+        :param FolioItemModel item: The item's replacement definition - `kind` selects its shape
+        :param Optional[str] path: "/"-separated section path from the root. Omitted or empty
+            addresses the root.
+        """
+        pass
+
+    @abstractmethod
+    def delete_item(self, key: str, item_name: str, path: Optional[str] = None, cascade: bool = False) -> None:
+        """ Delete a single named item from the section (or root) addressed by `path`
+
+        :param str key: The unique key of the folio
+        :param str item_name: The name of the item to delete
+        :param Optional[str] path: "/"-separated section path from the root. Omitted or empty
+            addresses the root.
+        :param bool cascade: If True, and the item is an owned reference (Activity/DataStream/
+            Folio), also delete the referenced entity
+        """
+        pass
+
+    @abstractmethod
+    def validate_folio(self, key: str, path: Optional[str] = None) -> FolioValidationReportModel:
+        """ Check the root or section at `path` against the folio's optional template. Never
+        fails because the folio doesn't (yet) satisfy it - an empty `issues` list means either
+        there's no template, or it's fully satisfied at and below `path`.
+
+        :param str key: The unique key of the folio
+        :param Optional[str] path: "/"-separated section path from the root. Omitted or empty
+            addresses the root.
+        :return: The validation report
+        :rtype: FolioValidationReportModel
         """
         pass
 
@@ -1230,6 +1734,15 @@ class InMotionSession(ABC):
 
         :return: The account management interface
         :rtype: InMotionAccounts
+        """
+        pass
+
+    @abstractmethod
+    def events(self) -> InMotionEvents:
+        """ Retrieve the event management interface for the session
+
+        :return: The event management interface
+        :rtype: InMotionEvents
         """
         pass
 

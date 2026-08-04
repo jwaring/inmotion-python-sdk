@@ -133,3 +133,18 @@ def test_find_uploads_issues_a_get_at_the_root_level_uploads_path():
 
     assert mock_request_json_map.call_args.args[0] == "GET"
     assert mock_request_json_map.call_args.args[1] == "http://example.test/api/v2/uploads/acct1"
+
+
+def test_upload_diagnostics_sends_multipart_body_and_returns_filenames(tmp_path):
+    session = _fake_session()
+    impl = InMotionUploadImpl(session)
+
+    file_path = tmp_path / "crash.log"
+    file_path.write_bytes(b"boom")
+
+    with patch("inmotion.upload.request_json", return_value={"files": ["user1_123_crash.log"]}) as mock_request_json:
+        result = impl.upload_diagnostics("acct1", str(file_path))
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/upload/diagnostics/acct1"
+    assert result == ["user1_123_crash.log"]

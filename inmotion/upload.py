@@ -96,3 +96,19 @@ class InMotionUploadImpl(InMotionUpload):
                                  '',
                                  'Failed to retrieve uploads',
                                  UploadMetadataModel)
+
+    def upload_diagnostics(self, account: str, file_path: str, content_type: str = 'application/octet-stream') -> list[str]:
+        with open(file_path, 'rb') as f:
+            file_bytes = f.read()
+        filename = os.path.basename(file_path)
+        multipart_content_type, body = _build_multipart_body('file', filename, content_type, file_bytes)
+
+        signed_content = body.decode('utf-8', errors='replace')
+        headers = self._session.build_headers(content=signed_content)
+        headers['Content-Type'] = multipart_content_type
+
+        result = request_json('POST', f"{self._prefix_path}/upload/diagnostics/{account}",
+                               headers,
+                               body,
+                               'Failed to upload diagnostics file')
+        return result.get('files', [])

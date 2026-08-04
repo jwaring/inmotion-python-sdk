@@ -43,6 +43,7 @@ class DataReference:
 class CoordinateConvention:
     SITE = 'S'
     TRACK = 'T'
+    EVENT = 'E'
 
 class AcquisitionConvention:
     OBSERVATION = 'O'
@@ -409,6 +410,32 @@ class AccountTagsModel:
     tags: list[str]
 
 @dataclass
+class ActivityTypeModel:
+    """
+    :param highestAccuracy: "best", "high", "medium", "low"
+    :param nominalSpeed: "very fast", "fast", "medium", "slow", "very slow", "fixed"
+    :param navigationNature: "fitness", "automotive", "general", "other"
+    :param profile: The activity profile type (e.g. A - Agriculture).
+    :param allowedAdapters: Regular expressions selecting mobile application adapters by code.
+    """
+    key: str
+    name: str
+    highestAccuracy: str
+    nominalSpeed: str
+    navigationNature: str
+    icon: str
+    profile: str
+    allowedAdapters: list[str]
+    colour: Optional[str] = None
+    preferredUnitSystem: Optional[str] = None
+    deprecated: bool = False
+
+@dataclass
+class MasterDataModel:
+    profileTypes: list[AccountProfileTypeModel]
+    activityTypes: list[ActivityTypeModel]
+
+@dataclass
 class UserRegistrationModel:
     userKey: str
     userName: str
@@ -506,6 +533,60 @@ class AccountMarkedForDeletionModel:
     success: bool
     accountMarked: bool
     userMarked: bool
+
+@dataclass
+class DeviceConfigSyncRequestModel:
+    """
+    :param since: Epoch millis; omitted means "the beginning of time" (return everything active).
+    :param accountKeys: Accounts to include - caller must have at least consumer privilege on
+        each, or the whole request fails (no partial results for a denied account).
+    :param includeDevelopment: If true, each account's in-progress DEVELOPMENT version is
+        included alongside its current PUBLISHED one (defaults to published-only).
+    """
+    since: Optional[int] = None
+    accountKeys: list[str] = field(default_factory=list)
+    includeDevelopment: bool = False
+
+@dataclass
+class DeviceConfigSyncEntryModel:
+    name: str
+    version: str
+    semanticVersion: str
+    yaml: str
+    updatedAt: str
+    status: Optional[str] = None
+    deprecated: Optional[bool] = None
+    deprecatedAt: Optional[str] = None
+
+@dataclass
+class DeviceConfigSyncDeletionModel:
+    """ A tombstone for an account-scoped Device Config name removed since `since`.
+
+    :param action: "deleted" or "discarded".
+    """
+    name: str
+    action: str
+    deletedAt: str
+
+@dataclass
+class DeviceConfigSyncAccountModel:
+    accountKey: str
+    published: list[DeviceConfigSyncEntryModel]
+    development: list[DeviceConfigSyncEntryModel]
+    deleted: list[DeviceConfigSyncDeletionModel]
+
+@dataclass
+class DeviceConfigSyncResultModel:
+    """
+    :param global_: Active (non-deprecated, non-disabled) global entries changed since `since`.
+    :param globalDeprecated: Names of global entries newly deprecated since `since` - tombstones
+        for a caching client.
+    :param accounts: Per requested account, its changed published/development entries and
+        deletion tombstones.
+    """
+    global_: list[DeviceConfigSyncEntryModel] = field(metadata={"data_key": "global"}, default_factory=list)
+    globalDeprecated: list[str] = field(default_factory=list)
+    accounts: list[DeviceConfigSyncAccountModel] = field(default_factory=list)
 
 @dataclass
 class UserAccountSummaryModel:
@@ -903,6 +984,74 @@ class DataStreamFilterModel:
             return None
 
 @dataclass
+class EventLocationModel:
+    """ The captured location (and time) of an Event - a single point in space/time. """
+    latitude: float
+    longitude: float
+    timeUtc: int
+    altitude: Optional[float] = None
+
+    def time_utc_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.timeUtc / 1000.0)
+
+@dataclass
+class EventThumbnailModel:
+    """ An Event's thumbnail/icon - embedded directly alongside its captured location.
+
+    :param kind: "icon" (a FontAwesome-style icon mnemonic), "svg" (inline SVG markup), or
+        "image" (a base64-encoded raster image).
+    :param data: The icon class name, raw SVG markup, or base64-encoded image bytes.
+    :param mimeType: Only meaningful for kind = "image" (e.g. "image/png").
+    """
+    kind: str
+    data: str
+    width: Optional[int] = None
+    height: Optional[int] = None
+    mimeType: Optional[str] = None
+
+@dataclass
+class EventCreatorModel:
+    """ :param dataStream: coordConv is forced to EVENT server-side regardless of what's supplied. """
+    dataStream: DataStreamCreatorModel
+    location: EventLocationModel
+    thumbnail: Optional[EventThumbnailModel] = None
+
+@dataclass
+class EventUpdateModel:
+    dataStream: DataStreamCreatorModel
+    location: Optional[EventLocationModel] = None
+    thumbnail: Optional[EventThumbnailModel] = None
+
+@dataclass
+class EventDetailsModel:
+    dataStream: DataStreamDetailsModel
+    location: Optional[EventLocationModel] = None
+    thumbnail: Optional[EventThumbnailModel] = None
+
+@dataclass
+class EventNearbyFilterModel:
+    """ :param accounts: The account keys to search (never unconstrained - empty returns no results). """
+    accounts: list[str]
+    minTime: int
+    maxTime: int
+    minLatitude: float
+    maxLatitude: float
+    minLongitude: float
+    maxLongitude: float
+
+    def min_time_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.minTime / 1000.0)
+
+    def max_time_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.maxTime / 1000.0)
+
+@dataclass
+class EventLocationSummaryModel:
+    """ A single result of a "find nearby" event search. """
+    key: str
+    location: EventLocationModel
+
+@dataclass
 class SDTValidRangeModel:
     lower: float
     upper: float
@@ -930,28 +1079,38 @@ class StandardDataTypeModel:
     synonyms: Optional[list[str]]
     deprecated: bool
 
-@dataclass
-class FolioSetModel:
-    label: str
-    description: str
-    accountKey: str
-    owner: str
-    created: int
-    appKey: Optional[str] = None
-
-    def created_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.created / 1000.0)
+class StructuredTextFormat:
+    JSON = 'JSON'
+    XML = 'XML'
+    YAML = 'YAML'
 
 @dataclass
-class FolioSetDetailsModel:
-    key: str
-    label: str
+class FolioItemModel:
+    """ A single entry in a Folio's (or section's) list. `kind` selects which of the other
+    fields apply: 'activity' (activityKey), 'dataStream' (dataStreamKey), 'folio' (folioKey,
+    a reference to another Folio), or 'text' (format/content, inline structured text - the only
+    kind with no `owned` flag, since it isn't a reference to another owned entity). """
+    kind: str
+    name: str
+    itemType: Optional[str] = None
+    activityKey: Optional[str] = None
+    dataStreamKey: Optional[str] = None
+    folioKey: Optional[str] = None
+    owned: Optional[bool] = None
+    format: Optional[str] = None
+    content: Optional[str] = None
+    attrs: dict[str, AttributeModel] = field(default_factory=dict)
+
+@dataclass
+class FolioSectionModel:
+    """ A named section within a Folio's tree; self-similar, so sections nest arbitrarily deep. """
+    name: str
     description: str
-    accountKey: str
-    owner: str
     created: int
     lastUpdated: int
-    appKey: Optional[str] = None
+    attrs: dict[str, AttributeModel]
+    items: list[FolioItemModel]
+    sections: list['FolioSectionModel']
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
@@ -960,54 +1119,117 @@ class FolioSetDetailsModel:
         return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
-class FolioStreamModel:
+class FolioRootModel:
+    """ The top of a Folio's content tree - like a FolioSectionModel, but with no name of its own. """
+    attrs: dict[str, AttributeModel]
+    items: list[FolioItemModel]
+    sections: list[FolioSectionModel]
+
+@dataclass
+class FolioTemplateSlotModel:
+    """ One rule within a FolioTemplateModel - see the server's docs/Folio-Template.md for the full schema.
+
+    :param kind: "section" or "item".
+    :param itemKind: For an item slot: one of "activity"/"dataStream"/"folio"/"text".
+    """
+    kind: str
+    name: Optional[str] = None
+    pattern: Optional[str] = None
+    itemKind: Optional[str] = None
+    itemType: Optional[str] = None
+    wildcard: bool = False
+    min: int = 0
+    max: Optional[int] = None
+    rules: list['FolioTemplateSlotModel'] = field(default_factory=list)
+
+@dataclass
+class FolioTemplateModel:
+    """ A named, versioned set of rules describing what's permitted to be added to a Folio.
+    Read-only here (submitted as raw YAML text on FolioModel.templateYaml, not this structured
+    form) - this is how it comes back on a FolioDetailsModel. """
     name: str
-    classifer: str
-    dataStreamKey: str
-    isAssociation: bool
-    isActive: bool
+    version: int
+    description: str
+    rules: list[FolioTemplateSlotModel]
 
 @dataclass
 class FolioModel:
-    label: str
+    """ Request body to create or update a folio's own metadata. `templateYaml`, if supplied, is
+    only honoured on creation - a folio's template is fixed for its lifetime. """
+    name: str
     description: str
+    accountKey: str
+    owner: str
     created: int
-    attrs: dict[str, AttributeModel]
-    streams: dict[str, FolioStreamModel]
+    root: FolioRootModel
+    folioType: Optional[str] = None
+    templateYaml: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
-
-@dataclass
-class FolioSummaryModel:
-    key: str
-    label: str
-    description: str
-    created: int
-    lastUpdated: int
-
-    def created_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.created / 1000.0)
-
-    def last_updated_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class FolioDetailsModel:
     key: str
-    fsKey: str
-    label: str
+    name: str
     description: str
+    accountKey: str
+    owner: str
+    version: int
     created: int
-    attrs: dict[str, AttributeModel]
-    streams: dict[str, FolioStreamModel]
+    root: FolioRootModel
     lastUpdated: int
+    folioType: Optional[str] = None
+    template: Optional[FolioTemplateModel] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
 
     def last_updated_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class FolioSummaryModel:
+    key: str
+    name: str
+    description: str
+    accountKey: str
+    version: int
+    created: int
+    lastUpdated: int
+    folioType: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class FolioSectionCreateModel:
+    name: str
+    description: str
+    attrs: dict[str, AttributeModel] = field(default_factory=dict)
+
+@dataclass
+class FolioSectionUpdateModel:
+    """ Only the fields supplied change; omitted fields are left as-is. """
+    name: Optional[str] = None
+    description: Optional[str] = None
+    attrs: Optional[dict[str, AttributeModel]] = None
+
+@dataclass
+class FolioValidationIssueModel:
+    """ :param path: "/"-separated, matching the `path` query parameter used elsewhere in this API.
+    :param kind: "missingMandatory", "tooMany", or "unrecognized". """
+    path: str
+    kind: str
+    message: str
+
+@dataclass
+class FolioValidationReportModel:
+    valid: bool
+    issues: list[FolioValidationIssueModel]
 
 @dataclass
 class SensorModel:
@@ -1101,6 +1323,67 @@ class ActivitySearchFilterModel:
             self.acqConvs = []
         if self.coordConvs is None:
             self.coordConvs = []
+
+@dataclass
+class ActivityAnalyticsRequestModel:
+    """
+    :param accounts: The accounts to include. Empty means "all accounts accessible to the caller".
+    :param filter: The same name/category/date-range/convention filter used for activity search.
+    :param groupBy: The dimensions to group counts by. Empty means a single overall count.
+    :param bucket: The time-bucket granularity, required when `groupBy` includes "bucket".
+    """
+    accounts: list[str] = field(default_factory=list)
+    filter: ActivitySearchFilterModel = field(default_factory=ActivitySearchFilterModel)
+    groupBy: list[str] = field(default_factory=list)
+    bucket: str = "none"
+
+@dataclass
+class ActivityAnalyticsGroupModel:
+    """ A single grouped count, keyed by the dimension values that produced it (e.g. `activityType` -> `hiking`). """
+    dims: dict[str, str]
+    count: int
+
+@dataclass
+class ActivityAnalyticsResultModel:
+    totalCount: int
+    groups: list[ActivityAnalyticsGroupModel]
+
+@dataclass
+class ActivityTrackMetricsGroupModel:
+    """ A single grouped set of aggregate track metrics, keyed by the dimension values that
+    produced it. Distances/ascent/descent are metres, duration is seconds, avgSpeed is metres/second. """
+    dims: dict[str, str]
+    count: int
+    totalDistance: float
+    totalAscent: float
+    totalDescent: float
+    totalDurationSeconds: int
+    avgSpeed: float
+
+@dataclass
+class ActivityTrackMetricsResultModel:
+    """ The result of a grouped track-metrics aggregation query. Uses the same request shape as
+    ActivityAnalyticsRequestModel. """
+    totalCount: int
+    groups: list[ActivityTrackMetricsGroupModel]
+
+@dataclass
+class ActivityVariableStatsGroupModel:
+    """ Aggregate statistics for a single standard data type within a dimension group, keyed by
+    the dimension values plus the standard data type. """
+    dims: dict[str, str]
+    standardDataType: str
+    name: str
+    units: str
+    count: int
+    statistics: VariableStatisticsModel
+
+@dataclass
+class ActivityVariableStatsResultModel:
+    """ The result of a grouped, per-standard-data-type variable statistics aggregation query.
+    Uses the same request shape as ActivityAnalyticsRequestModel. """
+    totalCount: int
+    groups: list[ActivityVariableStatsGroupModel]
 
 @dataclass
 class ActivityLocationModel:
@@ -1227,6 +1510,62 @@ class ActivityShareRulesModel:
 @dataclass
 class ActivityUpdateResponseModel:
     key: str
+
+@dataclass
+class ActivityBatchResultModel:
+    seqKey: str
+    status: int
+    key: Optional[str] = None
+    message: Optional[str] = None
+    hint: Optional[str] = None
+
+@dataclass
+class TrackCreateActivityBatchModel:
+    activity: ActivityModel
+    recordInterval: int
+    seqKey: Optional[str] = None
+    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+
+@dataclass
+class TrackUpdateActivityBatchModel:
+    key: str
+    seqKey: Optional[str] = None
+    activity: Optional[ActivityModel] = None
+    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+
+@dataclass
+class TrackActivityBatchCommandsModel:
+    create: list[TrackCreateActivityBatchModel] = field(default_factory=list)
+    update: list[TrackUpdateActivityBatchModel] = field(default_factory=list)
+
+@dataclass
+class SiteCreateActivityBatchModel:
+    activity: ActivityModel
+    location: ActivityLocationModel
+    recordInterval: int
+    seqKey: Optional[str] = None
+    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+
+@dataclass
+class SiteUpdateActivityBatchModel:
+    key: str
+    seqKey: Optional[str] = None
+    activity: Optional[ActivityModel] = None
+    location: Optional[ActivityLocationModel] = None
+    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+
+@dataclass
+class SiteActivityBatchCommandsModel:
+    create: list[SiteCreateActivityBatchModel] = field(default_factory=list)
+    update: list[SiteUpdateActivityBatchModel] = field(default_factory=list)
+
+@dataclass
+class ActivityBatchCommandsModel:
+    """ Request body for a batch record update: one or more track and/or site create/update
+    commands, each independently sequenced by an optional client-supplied `seqKey` so results can
+    be matched back to the command that produced them. """
+    tracks: Optional[TrackActivityBatchCommandsModel] = None
+    sites: Optional[SiteActivityBatchCommandsModel] = None
 
 @dataclass
 class ActivitiesItemModel:
@@ -1396,72 +1735,6 @@ class SiteActivityModel:
     records: Optional[SiteRecordsModel]
 
 @dataclass
-class TrackCreateActivityBatchModel:
-    seqKey: Optional[str]
-    activity: ActivityModel
-    recordInterval: int
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class TrackUpdateActivityBatchModel:
-    seqKey: Optional[str]
-    key: str
-    activity: Optional[ActivityModel]
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class SiteCreateActivityBatchModel:
-    seqKey: Optional[str]
-    activity: ActivityModel
-    location: ActivityLocationModel
-    recordInterval: int
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class SiteUpdateActivityBatchModel:
-    seqKey: Optional[str]
-    key: str
-    activity: Optional[ActivityModel]
-    location: Optional[ActivityLocationModel]
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class TrackActivityBatchCommandsModel:
-    create: list[TrackCreateActivityBatchModel]
-    update: list[TrackUpdateActivityBatchModel]
-
-@dataclass
-class SiteActivityBatchCommandsModel:
-    create: list[SiteCreateActivityBatchModel]
-    update: list[SiteUpdateActivityBatchModel]
-
-@dataclass
-class ActivityBatchCommandsModel:
-    tracks: Optional[TrackActivityBatchCommandsModel]
-    sites: Optional[SiteActivityBatchCommandsModel]
-
-@dataclass
-class ActivityBatchResultModel:
-    seqKey: str
-    status: int
-    key: Optional[str] = None
-    message: Optional[str] = None
-    hint: Optional[str] = None
-
-@dataclass
-class ActivityTypeModel:
-    key: str
-    name: str
-    highestAccuracy: str
-    nominalSpeed: str
-    navigationNature: str
-    icon: str
-    colour: Optional[str]
-    profile: str
-    allowedAdapters: list[str]
-    deprecated: bool = False
-
-@dataclass
 class UploadMetadataModel:
     account: str
     state: str
@@ -1482,11 +1755,6 @@ class UploadMetadataChangeCommandModel:
     mimeType: str
     nature: str
     attributes: dict[str, AttributeValueModel]
-
-@dataclass
-class MasterDataModel:
-    profileTypes: list[AccountProfileTypeModel]
-    activityTypes: list[ActivityTypeModel]
 
 @dataclass
 class AuthenticationRequestModel:
