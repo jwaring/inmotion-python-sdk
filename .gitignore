@@ -11,3 +11,7 @@ dist
 uv.lock
 /inmotion-python-sdk.iml
 examples/*.csv
+
+# Coding-agent context (kept locally, not committed)
+CLAUDE.md
+.claude/skills/
