@@ -8,6 +8,7 @@ __pycache__
 out
 outputs
 dist
+docs
 uv.lock
 /inmotion-python-sdk.iml
 examples/*.csv

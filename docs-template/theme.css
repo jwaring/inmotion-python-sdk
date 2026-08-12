@@ -1,0 +1,22 @@
+/* Color overrides to align pdoc's output with inmotion.io's palette
+   (see inmotion.io/assets/css/custom.css for the source of truth). */
+:root {
+    --pdoc-background: #F7F8F4;
+}
+
+.pdoc {
+    --text: #23291D;
+    --muted: #6c757d;
+    --link: #609A30;
+    --link-hover: #4C7A26;
+    --code: #F7F8F4;
+    --active: #eaf1e0;
+
+    --accent: #eaf1e0;
+    --accent2: #c1c1c1;
+
+    --nav-hover: rgba(255, 255, 255, 0.5);
+    --name: #4C7A26;
+    --def: #609A30;
+    --annotation: #609A30;
+}

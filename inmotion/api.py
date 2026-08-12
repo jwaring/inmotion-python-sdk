@@ -53,6 +53,7 @@ from inmotion.models import (
     DeviceConfigSyncRequestModel,
     DeviceConfigSyncResultModel,
     EventCreatorModel,
+    ExternalAuditBatchModel,
     EventDetailsModel,
     EventLocationSummaryModel,
     EventNearbyFilterModel,
@@ -69,9 +70,18 @@ from inmotion.models import (
     LastActivitiesModel,
     MasterDataModel,
     MessageResponseModel,
+    ModelSummaryModel,
+    ModelTreeModel,
     OTCModel,
+    ShapeDetailsModel,
+    ShapeGeometryModel,
+    ShapeModel,
+    ShapeSummaryModel,
+    ShapeUpdateModel,
     SiteActivityModel,
     SiteRecordsModel,
+    StreamTagModel,
+    StreamTagRequestModel,
     TrackActivityModel,
     TrackRecordsModel,
     UpdateSiteActivityModel,
@@ -309,6 +319,20 @@ class InMotionActivities(ABC):
         :param str track_key: The unique key of the shared track activity to retrieve records from
         :return: All records for the shared track activity
         :rtype: TrackRecordsModel
+        """
+        pass
+
+    @abstractmethod
+    def convert_track_to_route(self, track_key: str, name: Optional[str] = None) -> str:
+        """ Create a new, standalone Coverage/Route Shape from a track activity's GPS records.
+        The original track is left untouched - this is a derived record, not an in-place nature
+        change. Gated by the "track-to-shape" account feature.
+
+        :param str track_key: The unique key of the track activity to convert
+        :param Optional[str] name: An optional name for the new Route shape. Defaults to
+            "<track name> (Route)" when omitted.
+        :return: The new shape's key
+        :rtype: str
         """
         pass
 
@@ -1425,6 +1449,209 @@ class InMotionFolio(ABC):
         pass
 
 
+class InMotionShape(ABC):
+    """ Shape management: a named, classified collection of polygons (which may have holes/
+    islands), stored as a single GeoJSON FeatureCollection. Access is gated by a simple
+    feature-flag check (an account write privilege plus the "shape-editor" account feature), not
+    Folio's role/contributor model. """
+
+    @abstractmethod
+    def create_shape(self, shape: ShapeModel) -> ShapeDetailsModel:
+        """ Create a new, account-owned shape
+
+        :param ShapeModel shape: The definition of the shape to create
+        :return: The created shape's details
+        :rtype: ShapeDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def find_shapes(self, account_key: str, classification: Optional[str] = None) -> list[ShapeSummaryModel]:
+        """ List shape summaries for an account, optionally filtered by classification
+
+        :param str account_key: The unique key of the account
+        :param Optional[str] classification: An optional classification to filter by
+        :return: The matching shape summaries
+        :rtype: list[ShapeSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_shape(self, key: str) -> ShapeDetailsModel:
+        """ Find a shape by its unique key, including its full geojson and collection-level
+        variables
+
+        :param str key: The unique key of the shape
+        :return: The shape's details
+        :rtype: ShapeDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_shape(self, key: str, shape: ShapeUpdateModel) -> ShapeDetailsModel:
+        """ Update a shape's metadata (name, classification, collection-level variables). Does
+        not touch its geometry - use update_shape_geometry for that.
+
+        :param str key: The unique key of the shape to update
+        :param ShapeUpdateModel shape: The fields to update
+        :return: The updated shape's details
+        :rtype: ShapeDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_shape_geometry(self, key: str, geometry: ShapeGeometryModel) -> ShapeDetailsModel:
+        """ Replace a shape's geojson only
+
+        :param str key: The unique key of the shape to update
+        :param ShapeGeometryModel geometry: The replacement geojson
+        :return: The updated shape's details
+        :rtype: ShapeDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_shape(self, key: str) -> None:
+        """ Delete a shape by its unique key
+
+        :param str key: The unique key of the shape to delete
+        """
+        pass
+
+
+class InMotionAudit(ABC):
+    """ Write-only access to the external audit log: third-party integrations record their own
+    audit trail entries here, distinct from inMotion's internal account/user audit trail. """
+
+    @abstractmethod
+    def create_audit_batch(self, batch: ExternalAuditBatchModel) -> list[ActivityBatchResultModel]:
+        """ Write a batch of external audit records (max 100 per batch)
+
+        :param ExternalAuditBatchModel batch: The records to write, optionally scoped to an account
+        :return: One result per submitted record, in the same order, each carrying its own status
+        :rtype: list[ActivityBatchResultModel]
+        """
+        pass
+
+
+class InMotionModel(ABC):
+    """ Model catalogue: the models (equipment/sensor taxonomies) visible to or activated by an
+    account, their node trees, and the tagging of data streams against tree nodes.
+
+    ``select_model``/``deselect_model``/``tag_stream``/``untag_stream`` return a raw ``dict``
+    (e.g. ``{"selected": True}``) rather than a typed model, since the server returns an ad hoc
+    acknowledgement object with no declared schema. """
+
+    @abstractmethod
+    def find_visible_models(self, account_key: str) -> list[ModelSummaryModel]:
+        """ List the models visible to an account
+
+        :param str account_key: The unique key of the account
+        :return: Summaries of the visible models
+        :rtype: list[ModelSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_selected_models(self, account_key: str) -> list[ModelSummaryModel]:
+        """ List the models an account has activated
+
+        :param str account_key: The unique key of the account
+        :return: Summaries of the activated models
+        :rtype: list[ModelSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_model_tree(self, key: str, account_key: str) -> ModelTreeModel:
+        """ Find a model's node tree
+
+        :param str key: The unique key of the model
+        :param str account_key: The unique key of the account
+        :return: The model's summary and its tree of nodes
+        :rtype: ModelTreeModel
+        """
+        pass
+
+    @abstractmethod
+    def select_model(self, key: str, account_key: str) -> dict:
+        """ Activate a model for an account
+
+        :param str key: The unique key of the model
+        :param str account_key: The unique key of the account
+        :return: A raw dict acknowledging the selection, e.g. {"selected": True}
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def deselect_model(self, key: str, account_key: str) -> dict:
+        """ Deactivate a model for an account
+
+        :param str key: The unique key of the model
+        :param str account_key: The unique key of the account
+        :return: A raw dict acknowledging the deselection, e.g. {"selected": False}
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_streams_for_node(self, key: str, account_key: str, path: Optional[str] = None) -> list[str]:
+        """ Find the data stream keys tagged at a model tree node
+
+        :param str key: The unique key of the model
+        :param str account_key: The unique key of the account
+        :param Optional[str] path: An optional path to a specific node within the tree
+        :return: The matching data stream keys
+        :rtype: list[str]
+        """
+        pass
+
+    @abstractmethod
+    def find_tags_for_stream(self, data_stream_key: str) -> list[StreamTagModel]:
+        """ Find the model tree tags applied to a data stream
+
+        :param str data_stream_key: The unique key of the data stream
+        :return: The matching tags
+        :rtype: list[StreamTagModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_tags_for_account(self, account_key: str) -> list[StreamTagModel]:
+        """ Find every model tree tag an account has made
+
+        :param str account_key: The unique key of the account
+        :return: The matching tags
+        :rtype: list[StreamTagModel]
+        """
+        pass
+
+    @abstractmethod
+    def tag_stream(self, data_stream_key: str, account_key: str, tag: StreamTagRequestModel) -> dict:
+        """ Tag a data stream against a model tree node
+
+        :param str data_stream_key: The unique key of the data stream
+        :param str account_key: The unique key of the account
+        :param StreamTagRequestModel tag: The model and node path to tag against
+        :return: A raw dict acknowledging the tag, e.g. {"tagged": True}
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def untag_stream(self, data_stream_key: str, account_key: str, tag: StreamTagRequestModel) -> dict:
+        """ Remove a tag from a data stream
+
+        :param str data_stream_key: The unique key of the data stream
+        :param str account_key: The unique key of the account
+        :param StreamTagRequestModel tag: The model and node path to untag
+        :return: A raw dict acknowledging the untag, e.g. {"tagged": False}
+        :rtype: dict
+        """
+        pass
+
+
 class InMotionDataStream(ABC):
     """ Data stream management: the data stream entity itself, its hyperslab (array/gridded) data
     channels, and its blob (byte-oriented) data channels.
@@ -1806,6 +2033,33 @@ class InMotionSession(ABC):
 
         :return: The data stream management interface
         :rtype: InMotionDataStream
+        """
+        pass
+
+    @abstractmethod
+    def shape(self) -> InMotionShape:
+        """ Retrieve the shape management interface for the session
+
+        :return: The shape management interface
+        :rtype: InMotionShape
+        """
+        pass
+
+    @abstractmethod
+    def audit(self) -> InMotionAudit:
+        """ Retrieve the external audit interface for the session
+
+        :return: The external audit interface
+        :rtype: InMotionAudit
+        """
+        pass
+
+    @abstractmethod
+    def model(self) -> InMotionModel:
+        """ Retrieve the model catalogue interface for the session
+
+        :return: The model catalogue interface
+        :rtype: InMotionModel
         """
         pass
 

@@ -1,0 +1,13 @@
+{% extends "default/module.html.jinja2" %}
+
+{% block title %}inMotion Python SDK{% endblock %}
+
+{% block module_info %}
+    <section class="module-info">
+        <h1 class="modulename">inMotion Python SDK</h1>
+        {{ docstring(module) }}
+        {{ view_source_state(module) }}
+        {{ view_source_button(module) }}
+        {{ view_source_code(module) }}
+    </section>
+{% endblock %}

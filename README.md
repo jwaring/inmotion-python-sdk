@@ -16,6 +16,17 @@ To build the SDK, you can use the following command:
 uv build
 ```
 
+# Generate Docs
+
+Static HTML API docs, generated from the package's docstrings via [pdoc](https://pdoc.dev/):
+
+```bash
+bin/generate-docs.sh
+```
+
+Output lands in `docs/` by default (override with `INMOTION_DOCS_DIR`); it's gitignored since
+it's a generated artifact, not source.
+
 # Unit Tests
 
 The `tests/` directory contains a `pytest`-based unit test suite covering request signing, error
@@ -282,6 +293,29 @@ folio_api.validate_folio(f.key)  # check against the folio's optional template, 
 
 folio_api.delete_folio(f.key)
 ```
+
+## Shapes
+
+`session.shape()` manages shapes: a named, classified collection of polygons (which may have
+holes/islands), stored as a single GeoJSON FeatureCollection, and owned directly by an account
+(not gated by Folio's role/contributor model).
+
+```python
+shape_api = session.shape()
+
+s = shape_api.create_shape(ShapeModel(name="Field 12", accountKey=account_key, geojson=geojson_str))
+shape_api.find_shapes(account_key, classification="Boundary")
+shape_api.find_shape(s.key)
+
+shape_api.update_shape(s.key, ShapeUpdateModel(name="Field 12 (renamed)"))
+shape_api.update_shape_geometry(s.key, ShapeGeometryModel(geojson=updated_geojson_str))
+
+shape_api.delete_shape(s.key)
+```
+
+A track activity's GPS records can also be converted into a standalone Route shape (gated by the
+"track-to-shape" account feature) via `session.activities().convert_track_to_route(track_key)`,
+which returns the new shape's key.
 
 ## Events
 

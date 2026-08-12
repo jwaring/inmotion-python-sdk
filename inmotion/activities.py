@@ -206,6 +206,14 @@ class InMotionActivitiesImpl(InMotionActivities):
                              'Failed to retrieve shared track records',
                              TrackRecordsModel)
 
+    def convert_track_to_route(self, track_key: str, name: Optional[str] = None) -> str:
+        body_data = stringify({"name": name} if name is not None else {})
+        result = request_json('POST', f"{self._prefix_path}/activity/track/convert-to-route/{track_key}",
+                               self._session.build_headers(content=body_data),
+                               body_data,
+                               'Failed to convert track activity to route')
+        return result['key']
+
     def create_site_activity(self, csam: CreateSiteActivityModel) -> ActivityUpdateResponseModel:
         site_data = stringify({
             "activity": asdict(csam.activity),

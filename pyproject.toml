@@ -25,7 +25,7 @@ classifiers = [
           "Operating System :: OS Independent"]
 
 [project.optional-dependencies]
-dev = ["pytest", "tox"]
+dev = ["pytest", "tox", "pdoc"]
 
 [project.scripts]
 inmotion-smoke-test = "scripts.test:main"

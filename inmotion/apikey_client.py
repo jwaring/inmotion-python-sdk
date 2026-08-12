@@ -2,21 +2,27 @@ from inmotion.accounts import InMotionAccountsImpl
 from inmotion.activities import InMotionActivitiesImpl
 from inmotion.activity_config import InMotionActivityConfigImpl
 from inmotion.apikey import InMotionApiKeysImpl
+from inmotion.audit import InMotionAuditImpl
 from inmotion.datastream import InMotionDataStreamImpl
 from inmotion.devkey import InMotionDevKeysImpl
 from inmotion.event import InMotionEventsImpl
 from inmotion.exceptions import InMotionAuthenticationError
 from inmotion.folio import InMotionFolioImpl
+from inmotion.model import InMotionModelImpl
+from inmotion.shape import InMotionShapeImpl
 from inmotion import (
     InMotionSession,
-    InMotionActivities,
     InMotionAccounts,
+    InMotionActivities,
     InMotionActivityConfig,
     InMotionApiKeys,
+    InMotionAudit,
     InMotionDataStream,
     InMotionDevKeys,
     InMotionEvents,
     InMotionFolio,
+    InMotionModel,
+    InMotionShape,
     InMotionUpload,
     InMotionUser,
 )
@@ -70,6 +76,15 @@ class InMotionAPIKeySession(InMotionSession):
 
     def data_stream(self) -> InMotionDataStream:
         return InMotionDataStreamImpl(self)
+
+    def shape(self) -> InMotionShape:
+        return InMotionShapeImpl(self)
+
+    def audit(self) -> InMotionAudit:
+        return InMotionAuditImpl(self)
+
+    def model(self) -> InMotionModel:
+        return InMotionModelImpl(self)
 
     def build_headers(self, content: str) -> dict[str, str]:
         return build_im_headers(dev_key=self._dev_key,

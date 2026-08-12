@@ -1232,6 +1232,148 @@ class FolioValidationReportModel:
     issues: list[FolioValidationIssueModel]
 
 @dataclass
+class ShapeVariableModel:
+    name: str
+    value: Optional[str] = None
+    computed: bool = False
+
+@dataclass
+class ShapeModel:
+    """ Request body to create a Shape. """
+    name: str
+    accountKey: str
+    geojson: str
+    classification: Optional[str] = None
+    variables: list[ShapeVariableModel] = field(default_factory=list)
+
+@dataclass
+class ShapeDetailsModel:
+    key: str
+    name: str
+    accountKey: str
+    geojson: str
+    category: str
+    created: int
+    lastUpdated: int
+    classification: Optional[str] = None
+    variables: list[ShapeVariableModel] = field(default_factory=list)
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    layerName: Optional[str] = None
+    layerLower: Optional[float] = None
+    layerUpper: Optional[float] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class ShapeSummaryModel:
+    key: str
+    accountKey: str
+    name: str
+    category: str
+    created: int
+    lastUpdated: int
+    classification: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class ShapeUpdateModel:
+    """ Request body to update a Shape's metadata (name/classification/collection-level
+    variables/comment/tags/colour-ramp/nature) only - use ShapeGeometryModel to update its
+    `geojson` instead. `clearLayer` is a separate, explicit "drop the colour-ramp attrs" signal,
+    since layerName/layerLower/layerUpper already use "omitted = leave untouched" semantics. """
+    name: str
+    classification: Optional[str] = None
+    variables: list[ShapeVariableModel] = field(default_factory=list)
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    layerName: Optional[str] = None
+    layerLower: Optional[float] = None
+    layerUpper: Optional[float] = None
+    category: Optional[str] = None
+    clearLayer: bool = False
+
+@dataclass
+class ShapeGeometryModel:
+    geojson: str
+
+@dataclass
+class ExternalAuditRecordModel:
+    """ A single record in a batch write to the external audit log (max 100 per batch, see
+    ExternalAuditBatchModel). `application` must be in the server's configured allow-list, or
+    "platform" (the default). """
+    reason: str
+    description: str
+    seqKey: Optional[str] = None
+    application: Optional[str] = None
+    timestamp: Optional[int] = None
+
+    def timestamp_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.timestamp / 1000.0) if self.timestamp is not None else None
+
+@dataclass
+class ExternalAuditBatchModel:
+    """ Request body to write a batch of external audit records. """
+    records: list[ExternalAuditRecordModel]
+    account: Optional[str] = None
+
+@dataclass
+class ModelSummaryModel:
+    key: str
+    name: str
+    version: str
+    global_: bool = field(metadata=dict(data_key="global"))
+    description: str = ''
+    deprecated: bool = False
+    deprecatedDate: Optional[int] = None
+
+    def deprecated_date_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.deprecatedDate / 1000.0) if self.deprecatedDate is not None else None
+
+@dataclass
+class ModelNodeModel:
+    """ A node in a model's tree, self-recursive via `children`. `attrs` is a polymorphic map
+    (string/int/boolean/... attribute values) with no fixed schema on the server, so it's
+    returned as a raw dict rather than a typed model. """
+    key: str
+    name: str
+    deprecated: bool
+    description: Optional[str] = None
+    attrs: dict[str, Any] = field(default_factory=dict)
+    children: list["ModelNodeModel"] = field(default_factory=list)
+
+@dataclass
+class ModelTreeModel:
+    model: ModelSummaryModel
+    roots: list[ModelNodeModel] = field(default_factory=list)
+
+@dataclass
+class StreamTagModel:
+    dataStreamKey: str
+    modelKey: str
+    accountKey: str
+    taggedBy: str
+    taggedAt: int
+    path: list[str] = field(default_factory=list)
+
+    def tagged_at_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.taggedAt / 1000.0)
+
+@dataclass
+class StreamTagRequestModel:
+    modelKey: str
+    path: list[str] = field(default_factory=list)
+
+@dataclass
 class SensorModel:
     name: str
     kind: str
