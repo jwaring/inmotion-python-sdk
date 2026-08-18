@@ -17,6 +17,9 @@ from inmotion.models import (
     CreateTrackActivityModel,
     LastActivitiesModel,
     MasterDataModel,
+    ModelFieldGroupModel,
+    QCConfigModel,
+    SetModelFieldValueRequestModel,
     SiteActivityModel,
     SiteRecordsModel,
     TrackActivityModel,
@@ -214,6 +217,37 @@ class InMotionActivitiesImpl(InMotionActivities):
                                'Failed to convert track activity to route')
         return result['key']
 
+    def preview_track_records(self, track_key: str, qc_config: QCConfigModel) -> dict:
+        qc_data = stringify(qc_config)
+        return request_json('POST', f"{self._prefix_path}/activity/track/records/{track_key}/preview",
+                             self._session.build_headers(content=qc_data),
+                             qc_data,
+                             'Failed to preview track records')
+
+    def preview_track_records_within_range(self, track_key: str, start_time: datetime, end_time: datetime, qc_config: QCConfigModel) -> dict:
+        start_millis = int(start_time.timestamp() * 1000)
+        end_millis = int(end_time.timestamp() * 1000)
+        qc_data = stringify(qc_config)
+        return request_json('POST', f"{self._prefix_path}/activity/track/records/{track_key}/preview/{start_millis}/{end_millis}",
+                             self._session.build_headers(content=qc_data),
+                             qc_data,
+                             'Failed to preview track records within range')
+
+    def find_track_model_field_groups(self, track_key: str) -> list[ModelFieldGroupModel]:
+        return request_json('GET', f"{self._prefix_path}/activity/track/{track_key}/model-fields",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to find track model field groups',
+                             ModelFieldGroupModel, many=True)
+
+    def set_track_model_field_value(self, track_key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
+        request_data = stringify(request)
+        return request_json('PUT', f"{self._prefix_path}/activity/track/{track_key}/model-fields",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to set track model field value',
+                             ModelFieldGroupModel, many=True)
+
     def create_site_activity(self, csam: CreateSiteActivityModel) -> ActivityUpdateResponseModel:
         site_data = stringify({
             "activity": asdict(csam.activity),
@@ -314,3 +348,34 @@ class InMotionActivitiesImpl(InMotionActivities):
                              '',
                              'Failed to retrieve shared site records',
                              SiteRecordsModel)
+
+    def preview_site_records(self, site_key: str, qc_config: QCConfigModel) -> dict:
+        qc_data = stringify(qc_config)
+        return request_json('POST', f"{self._prefix_path}/activity/site/records/{site_key}/preview",
+                             self._session.build_headers(content=qc_data),
+                             qc_data,
+                             'Failed to preview site records')
+
+    def preview_site_records_within_range(self, site_key: str, start_time: datetime, end_time: datetime, qc_config: QCConfigModel) -> dict:
+        start_millis = int(start_time.timestamp() * 1000)
+        end_millis = int(end_time.timestamp() * 1000)
+        qc_data = stringify(qc_config)
+        return request_json('POST', f"{self._prefix_path}/activity/site/records/{site_key}/preview/{start_millis}/{end_millis}",
+                             self._session.build_headers(content=qc_data),
+                             qc_data,
+                             'Failed to preview site records within range')
+
+    def find_site_model_field_groups(self, site_key: str) -> list[ModelFieldGroupModel]:
+        return request_json('GET', f"{self._prefix_path}/activity/site/{site_key}/model-fields",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to find site model field groups',
+                             ModelFieldGroupModel, many=True)
+
+    def set_site_model_field_value(self, site_key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
+        request_data = stringify(request)
+        return request_json('PUT', f"{self._prefix_path}/activity/site/{site_key}/model-fields",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to set site model field value',
+                             ModelFieldGroupModel, many=True)

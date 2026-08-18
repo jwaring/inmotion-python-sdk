@@ -2156,3 +2156,234 @@ class ActivityConfigQCRegionGenerateResultModel:
 @dataclass
 class AdminArchiveLocationModel:
     location: str
+
+@dataclass
+class ValueValidationModel:
+    pattern: Optional[str] = None
+    min: Optional[float] = None
+    max: Optional[float] = None
+    precision: Optional[int] = None
+
+@dataclass
+class ModelFieldValueModel:
+    """ One field on a tagged classification node, its schema, and (if set) its current value for
+    this data stream. """
+    fieldName: str
+    valueType: str
+    required: bool
+    multiple: bool
+    enumValues: list[str] = field(default_factory=list)
+    unit: Optional[str] = None
+    validation: Optional[ValueValidationModel] = None
+    value: Optional[AttributeModel] = None
+
+@dataclass
+class ModelFieldGroupModel:
+    """ All fields for one active classification tag on a data stream - path/nodeName identify
+    which tag this is, so a stream tagged more than once renders one of these per tag. """
+    modelKey: str
+    path: list[str]
+    nodeName: str
+    breadcrumb: str
+    fields: list[ModelFieldValueModel] = field(default_factory=list)
+
+@dataclass
+class SetModelFieldValueRequestModel:
+    """ Request body to set (or, if `value` is omitted/blank on an optional field, clear) one
+    field's value for one active tag. """
+    modelKey: str
+    path: list[str]
+    fieldName: str
+    value: Optional[str] = None
+
+@dataclass
+class RasterOverlayBoundsModel:
+    """ The raster's full extent in WGS84 lon/lat, straight off the file's own georeferencing. """
+    minLon: float
+    minLat: float
+    maxLon: float
+    maxLat: float
+    epsgCode: str
+
+@dataclass
+class RasterOverlaySummaryModel:
+    key: str
+    accountKey: str
+    name: str
+    wmsLayer: str
+    created: int
+    lastUpdated: int
+    tags: list[str] = field(default_factory=list)
+    rampName: Optional[str] = None
+    valueLower: Optional[float] = None
+    valueUpper: Optional[float] = None
+    invert: Optional[bool] = None
+    alpha: Optional[float] = None
+    transparentOutOfRange: Optional[bool] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class RasterOverlayDetailsModel:
+    key: str
+    accountKey: str
+    name: str
+    wmsLayer: str
+    mapToken: str
+    created: int
+    lastUpdated: int
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    rampName: Optional[str] = None
+    valueLower: Optional[float] = None
+    valueUpper: Optional[float] = None
+    invert: Optional[bool] = None
+    alpha: Optional[float] = None
+    transparentOutOfRange: Optional[bool] = None
+    bbox: Optional[RasterOverlayBoundsModel] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class RasterOverlayStyleUpdateModel:
+    """ Request body to update a RasterOverlay's editable metadata - style plus name/comment/tags
+    (creation is import-tool-only). Omitted fields are left untouched. """
+    name: Optional[str] = None
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    rampName: Optional[str] = None
+    valueLower: Optional[float] = None
+    valueUpper: Optional[float] = None
+    invert: Optional[bool] = None
+    alpha: Optional[float] = None
+    transparentOutOfRange: Optional[bool] = None
+
+@dataclass
+class ShapeGeneratorModel:
+    """ Request body to create a Shape Generator. """
+    name: str
+    accountKey: str
+    generatorType: str
+    params: Any
+    clipBoundaryShapeKey: Optional[str] = None
+    labelTemplate: Optional[str] = None
+
+@dataclass
+class ShapeGeneratorDetailsModel:
+    key: str
+    name: str
+    accountKey: str
+    generatorType: str
+    params: Any
+    labelTemplate: str
+    created: int
+    lastUpdated: int
+    clipBoundaryShapeKey: Optional[str] = None
+    generatedGeojson: Optional[str] = None
+    generatedAt: Optional[int] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def generated_at_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.generatedAt / 1000.0) if self.generatedAt is not None else None
+
+@dataclass
+class ShapeGeneratorSummaryModel:
+    key: str
+    accountKey: str
+    name: str
+    generatorType: str
+    created: int
+    lastUpdated: int
+    generatedAt: Optional[int] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def generated_at_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.generatedAt / 1000.0) if self.generatedAt is not None else None
+
+@dataclass
+class ShapeGeneratorUpdateModel:
+    """ Full-replace update of a generator's rules - does not itself touch `generatedGeojson`. """
+    name: str
+    params: Any
+    labelTemplate: str
+    clipBoundaryShapeKey: Optional[str] = None
+
+@dataclass
+class MfaChallengeModel:
+    """ The response `/authenticate` returns in place of AuthenticationSessionModel when the
+    account has MFA enabled. `mfaToken` must be sent back as the `X-Auth-Token` header on
+    `/authenticate/mfa` or `/authenticate/mfa/resend`. """
+    mfaToken: str
+    mfaPending: bool
+    method: str
+    expiresInSeconds: int
+
+@dataclass
+class MfaVerifyRequestModel:
+    code: str
+    requiredApiVersion: Optional[str] = None
+    withMasterData: Optional[bool] = None
+
+@dataclass
+class MfaResendResultModel:
+    status: str
+    method: str
+
+@dataclass
+class MfaStatusModel:
+    enabled: bool
+    method: Optional[str] = None
+    enrolledAt: Optional[int] = None
+    available: Optional[bool] = None
+
+    def enrolled_at_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.enrolledAt / 1000.0) if self.enrolledAt is not None else None
+
+@dataclass
+class MfaEnrollRequestModel:
+    method: str
+    password: str
+
+@dataclass
+class MfaDisableRequestModel:
+    password: str
+
+@dataclass
+class TotpEnrollBeginRequestModel:
+    password: str
+
+@dataclass
+class TotpEnrollmentBeginResultModel:
+    secretKey: str
+    otpAuthUri: str
+    backupCodes: list[str] = field(default_factory=list)
+
+@dataclass
+class TotpConfirmRequestModel:
+    code: str
+
+@dataclass
+class TotpBackupCodesRegenerateRequestModel:
+    password: str
+
+@dataclass
+class MfaBackupCodesModel:
+    backupCodes: list[str] = field(default_factory=list)

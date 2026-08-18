@@ -2,7 +2,15 @@ from inmotion.api import InMotionSession, InMotionUser
 from inmotion.models import (
     AccountUserSummaryModel,
     MessageResponseModel,
+    MfaBackupCodesModel,
+    MfaDisableRequestModel,
+    MfaEnrollRequestModel,
+    MfaStatusModel,
     OTCModel,
+    TotpBackupCodesRegenerateRequestModel,
+    TotpConfirmRequestModel,
+    TotpEnrollBeginRequestModel,
+    TotpEnrollmentBeginResultModel,
     UserAttributesModel,
     UserPasswordRequestModel,
     UserRegistrationModel,
@@ -60,3 +68,58 @@ class InMotionUserImpl(InMotionUser):
                              '',
                              'Failed to create one-time code',
                              OTCModel)
+
+    def find_mfa_status(self) -> MfaStatusModel:
+        return request_json('GET', f"{self._prefix_path}/user/mfa",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve MFA status',
+                             MfaStatusModel)
+
+    def enroll_mfa(self, request: MfaEnrollRequestModel) -> MfaStatusModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/user/mfa/enroll",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to begin MFA enrollment',
+                             MfaStatusModel)
+
+    def confirm_mfa_email(self, request: TotpConfirmRequestModel) -> MfaStatusModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/user/mfa/email/confirm",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to confirm EMAIL MFA enrollment',
+                             MfaStatusModel)
+
+    def begin_totp_enrollment(self, request: TotpEnrollBeginRequestModel) -> TotpEnrollmentBeginResultModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/user/mfa/totp/enroll",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to begin TOTP enrollment',
+                             TotpEnrollmentBeginResultModel)
+
+    def confirm_totp_enrollment(self, request: TotpConfirmRequestModel) -> MfaStatusModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/user/mfa/totp/confirm",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to confirm TOTP enrollment',
+                             MfaStatusModel)
+
+    def regenerate_totp_backup_codes(self, request: TotpBackupCodesRegenerateRequestModel) -> MfaBackupCodesModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/user/mfa/totp/backup-codes/regenerate",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to regenerate TOTP backup codes',
+                             MfaBackupCodesModel)
+
+    def disable_mfa(self, request: MfaDisableRequestModel) -> MfaStatusModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/user/mfa/disable",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to disable MFA',
+                             MfaStatusModel)

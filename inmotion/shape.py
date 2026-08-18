@@ -3,6 +3,8 @@ from urllib.parse import quote
 
 from inmotion.api import InMotionSession, InMotionShape
 from inmotion.models import (
+    ModelFieldGroupModel,
+    SetModelFieldValueRequestModel,
     ShapeDetailsModel,
     ShapeGeometryModel,
     ShapeModel,
@@ -67,3 +69,18 @@ class InMotionShapeImpl(InMotionShape):
                      self._session.build_headers(content=''),
                      '',
                      'Failed to delete shape')
+
+    def find_model_field_groups(self, key: str) -> list[ModelFieldGroupModel]:
+        return request_json('GET', f"{self._prefix_path}/{key}/model-fields",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to find shape model field groups',
+                             ModelFieldGroupModel, many=True)
+
+    def set_model_field_value(self, key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
+        request_data = stringify(request)
+        return request_json('PUT', f"{self._prefix_path}/{key}/model-fields",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to set shape model field value',
+                             ModelFieldGroupModel, many=True)

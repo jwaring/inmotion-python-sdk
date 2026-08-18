@@ -70,10 +70,24 @@ from inmotion.models import (
     LastActivitiesModel,
     MasterDataModel,
     MessageResponseModel,
+    MfaBackupCodesModel,
+    MfaDisableRequestModel,
+    MfaEnrollRequestModel,
+    MfaStatusModel,
+    ModelFieldGroupModel,
     ModelSummaryModel,
     ModelTreeModel,
     OTCModel,
+    QCConfigModel,
+    RasterOverlayDetailsModel,
+    RasterOverlaySummaryModel,
+    RasterOverlayStyleUpdateModel,
+    SetModelFieldValueRequestModel,
     ShapeDetailsModel,
+    ShapeGeneratorDetailsModel,
+    ShapeGeneratorModel,
+    ShapeGeneratorSummaryModel,
+    ShapeGeneratorUpdateModel,
     ShapeGeometryModel,
     ShapeModel,
     ShapeSummaryModel,
@@ -82,6 +96,10 @@ from inmotion.models import (
     SiteRecordsModel,
     StreamTagModel,
     StreamTagRequestModel,
+    TotpBackupCodesRegenerateRequestModel,
+    TotpConfirmRequestModel,
+    TotpEnrollBeginRequestModel,
+    TotpEnrollmentBeginResultModel,
     TrackActivityModel,
     TrackRecordsModel,
     UpdateSiteActivityModel,
@@ -337,6 +355,55 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
+    def preview_track_records(self, track_key: str, qc_config: QCConfigModel) -> dict:
+        """ Retrieve records for a track activity with an ephemeral QC configuration applied. The
+        config is not saved.
+
+        :param str track_key: The unique key of the track activity to preview records for
+        :param QCConfigModel qc_config: The ephemeral QC configuration to apply
+        :return: The previewed records, as a raw dict (no fixed schema is declared server-side)
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def preview_track_records_within_range(self, track_key: str, start_time: datetime, end_time: datetime, qc_config: QCConfigModel) -> dict:
+        """ Retrieve records for a track activity within a time range with an ephemeral QC
+        configuration applied. The config is not saved.
+
+        :param str track_key: The unique key of the track activity to preview records for
+        :param datetime start_time: The start of the time range (inclusive)
+        :param datetime end_time: The end of the time range (inclusive)
+        :param QCConfigModel qc_config: The ephemeral QC configuration to apply
+        :return: The previewed records, as a raw dict (no fixed schema is declared server-side)
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_track_model_field_groups(self, track_key: str) -> list[ModelFieldGroupModel]:
+        """ Find a track activity's custom classification field values - one field group per
+        active classification tag on this track.
+
+        :param str track_key: The unique key of the track activity
+        :return: The track activity's active classification field groups
+        :rtype: list[ModelFieldGroupModel]
+        """
+        pass
+
+    @abstractmethod
+    def set_track_model_field_value(self, track_key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
+        """ Set (or, if value is omitted/blank on an optional field, clear) one custom
+        classification field's value for one active tag on a track activity.
+
+        :param str track_key: The unique key of the track activity
+        :param SetModelFieldValueRequestModel request: The field value to set
+        :return: The track activity's active classification field groups, including the updated value
+        :rtype: list[ModelFieldGroupModel]
+        """
+        pass
+
+    @abstractmethod
     def create_site_activity(self, activity: CreateSiteActivityModel) -> ActivityUpdateResponseModel:
         """ Create a site activity based on the definition
 
@@ -465,6 +532,55 @@ class InMotionActivities(ABC):
         :param datetime end_time: The end of the time range (inclusive)
         :return: The records for the shared site activity within the specified time range
         :rtype: SiteRecordsModel
+        """
+        pass
+
+    @abstractmethod
+    def preview_site_records(self, site_key: str, qc_config: QCConfigModel) -> dict:
+        """ Retrieve records for a site activity with an ephemeral QC configuration applied. The
+        config is not saved.
+
+        :param str site_key: The unique key of the site activity to preview records for
+        :param QCConfigModel qc_config: The ephemeral QC configuration to apply
+        :return: The previewed records, as a raw dict (no fixed schema is declared server-side)
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def preview_site_records_within_range(self, site_key: str, start_time: datetime, end_time: datetime, qc_config: QCConfigModel) -> dict:
+        """ Retrieve records for a site activity within a time range with an ephemeral QC
+        configuration applied. The config is not saved.
+
+        :param str site_key: The unique key of the site activity to preview records for
+        :param datetime start_time: The start of the time range (inclusive)
+        :param datetime end_time: The end of the time range (inclusive)
+        :param QCConfigModel qc_config: The ephemeral QC configuration to apply
+        :return: The previewed records, as a raw dict (no fixed schema is declared server-side)
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_site_model_field_groups(self, site_key: str) -> list[ModelFieldGroupModel]:
+        """ Find a site activity's custom classification field values - one field group per
+        active classification tag on this site.
+
+        :param str site_key: The unique key of the site activity
+        :return: The site activity's active classification field groups
+        :rtype: list[ModelFieldGroupModel]
+        """
+        pass
+
+    @abstractmethod
+    def set_site_model_field_value(self, site_key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
+        """ Set (or, if value is omitted/blank on an optional field, clear) one custom
+        classification field's value for one active tag on a site activity.
+
+        :param str site_key: The unique key of the site activity
+        :param SetModelFieldValueRequestModel request: The field value to set
+        :return: The site activity's active classification field groups, including the updated value
+        :rtype: list[ModelFieldGroupModel]
         """
         pass
 
@@ -1166,6 +1282,84 @@ class InMotionUser(ABC):
         """
         pass
 
+    @abstractmethod
+    def find_mfa_status(self) -> MfaStatusModel:
+        """ Retrieve MFA enrollment status (enabled, method, enrolled-at) for the authenticated user
+
+        :return: The authenticated user's MFA status
+        :rtype: MfaStatusModel
+        """
+        pass
+
+    @abstractmethod
+    def enroll_mfa(self, request: MfaEnrollRequestModel) -> MfaStatusModel:
+        """ Begin EMAIL MFA enrollment for the authenticated user's own account: requires
+        re-entering the current password, then emails a live code. MFA does not activate yet -
+        follow with confirm_mfa_email. TOTP/SMS are rejected here - use begin_totp_enrollment
+        instead.
+
+        :param MfaEnrollRequestModel request: The method to enroll in and the current password
+        :return: The user's MFA status (still not enabled)
+        :rtype: MfaStatusModel
+        """
+        pass
+
+    @abstractmethod
+    def confirm_mfa_email(self, request: TotpConfirmRequestModel) -> MfaStatusModel:
+        """ Confirm a pending EMAIL enrollment (from enroll_mfa) with the live code just emailed
+        to the account. Activates MFA (method EMAIL) only on success.
+
+        :param TotpConfirmRequestModel request: The code that was emailed
+        :return: The user's MFA status, now enabled if the code was valid
+        :rtype: MfaStatusModel
+        """
+        pass
+
+    @abstractmethod
+    def begin_totp_enrollment(self, request: TotpEnrollBeginRequestModel) -> TotpEnrollmentBeginResultModel:
+        """ Generate a new TOTP secret and backup/recovery codes for the authenticated user's own
+        account. Does not activate MFA yet - follow with confirm_totp_enrollment. Requires
+        re-entering the current password. `backupCodes` are returned in plaintext exactly once.
+
+        :param TotpEnrollBeginRequestModel request: The current password
+        :return: The new TOTP secret/QR URI/backup codes
+        :rtype: TotpEnrollmentBeginResultModel
+        """
+        pass
+
+    @abstractmethod
+    def confirm_totp_enrollment(self, request: TotpConfirmRequestModel) -> MfaStatusModel:
+        """ Confirm a pending TOTP enrollment (from begin_totp_enrollment) with a live code from
+        the authenticator app just configured. Activates MFA (method TOTP) only on success.
+
+        :param TotpConfirmRequestModel request: The code from the authenticator app
+        :return: The user's MFA status, now enabled if the code was valid
+        :rtype: MfaStatusModel
+        """
+        pass
+
+    @abstractmethod
+    def regenerate_totp_backup_codes(self, request: TotpBackupCodesRegenerateRequestModel) -> MfaBackupCodesModel:
+        """ Regenerate the authenticated user's TOTP backup/recovery codes, invalidating the
+        previous set entirely. Requires re-entering the current password, and that TOTP is
+        currently the account's enabled MFA method.
+
+        :param TotpBackupCodesRegenerateRequestModel request: The current password
+        :return: The new set of backup/recovery codes, plaintext, shown exactly once
+        :rtype: MfaBackupCodesModel
+        """
+        pass
+
+    @abstractmethod
+    def disable_mfa(self, request: MfaDisableRequestModel) -> MfaStatusModel:
+        """ Disable MFA for the caller's own account. Requires re-entering the current password.
+
+        :param MfaDisableRequestModel request: The current password
+        :return: The user's MFA status, now disabled
+        :rtype: MfaStatusModel
+        """
+        pass
+
 
 class InMotionUpload(ABC):
     @abstractmethod
@@ -1515,6 +1709,179 @@ class InMotionShape(ABC):
         """ Delete a shape by its unique key
 
         :param str key: The unique key of the shape to delete
+        """
+        pass
+
+    @abstractmethod
+    def find_model_field_groups(self, key: str) -> list[ModelFieldGroupModel]:
+        """ Find a shape's custom classification field values - one field group per active
+        classification tag on this shape.
+
+        :param str key: The unique key of the shape
+        :return: The shape's active classification field groups
+        :rtype: list[ModelFieldGroupModel]
+        """
+        pass
+
+    @abstractmethod
+    def set_model_field_value(self, key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
+        """ Set (or, if value is omitted/blank on an optional field, clear) one custom
+        classification field's value for one active tag on a shape.
+
+        :param str key: The unique key of the shape
+        :param SetModelFieldValueRequestModel request: The field value to set
+        :return: The shape's active classification field groups, including the updated value
+        :rtype: list[ModelFieldGroupModel]
+        """
+        pass
+
+
+class InMotionRasterOverlay(ABC):
+    """ Raster overlay management: WMS-served raster/gridded imagery (GeoTIFF/COG today, gridded
+    model data later), managed alongside vector Shapes. Creation is import-tool-only - no
+    create/upload method exists here. Gated by the SHAPE_EDITOR account feature/privilege AND the
+    global `inmotion.wms.enabled` kill-switch. """
+
+    @abstractmethod
+    def find_raster_overlays(self, account_key: str) -> list[RasterOverlaySummaryModel]:
+        """ List raster overlay summaries for an account
+
+        :param str account_key: The unique key of the account
+        :return: The matching raster overlay summaries
+        :rtype: list[RasterOverlaySummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_raster_overlay(self, key: str) -> RasterOverlayDetailsModel:
+        """ Find a raster overlay by its unique key. Metadata only - never the raw raster file.
+
+        :param str key: The unique key of the raster overlay
+        :return: The raster overlay's details
+        :rtype: RasterOverlayDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_raster_overlay_style(self, key: str, style: RasterOverlayStyleUpdateModel) -> RasterOverlayDetailsModel:
+        """ Update a raster overlay's editable metadata - style plus name/comment/tags. Omitted
+        fields are left untouched.
+
+        :param str key: The unique key of the raster overlay to update
+        :param RasterOverlayStyleUpdateModel style: The fields to update
+        :return: The updated raster overlay's details
+        :rtype: RasterOverlayDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_raster_overlay(self, key: str) -> None:
+        """ Delete a raster overlay by its unique key
+
+        :param str key: The unique key of the raster overlay to delete
+        """
+        pass
+
+    @abstractmethod
+    def find_model_field_groups(self, key: str) -> list[ModelFieldGroupModel]:
+        """ Find a raster overlay's custom classification field values - one field group per
+        active classification tag on this raster overlay.
+
+        :param str key: The unique key of the raster overlay
+        :return: The raster overlay's active classification field groups
+        :rtype: list[ModelFieldGroupModel]
+        """
+        pass
+
+    @abstractmethod
+    def set_model_field_value(self, key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
+        """ Set (or, if value is omitted/blank on an optional field, clear) one custom
+        classification field's value for one active tag on a raster overlay.
+
+        :param str key: The unique key of the raster overlay
+        :param SetModelFieldValueRequestModel request: The field value to set
+        :return: The raster overlay's active classification field groups, including the updated value
+        :rtype: list[ModelFieldGroupModel]
+        """
+        pass
+
+
+class InMotionShapeGenerator(ABC):
+    """ Shape generator management: a rules-based geometry generator (Shape Editor v2). Its
+    identity is its rules (type/params), not a piece of geometry - see `commit_shape_generator`
+    for snapshotting its output into an independent Shape. Access is gated the same way as
+    Shape. """
+
+    @abstractmethod
+    def create_shape_generator(self, generator: ShapeGeneratorModel) -> ShapeGeneratorDetailsModel:
+        """ Create a new, account-owned shape generator
+
+        :param ShapeGeneratorModel generator: The definition of the shape generator to create
+        :return: The created shape generator's details
+        :rtype: ShapeGeneratorDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def find_shape_generators(self, account_key: str) -> list[ShapeGeneratorSummaryModel]:
+        """ List shape generator summaries for an account
+
+        :param str account_key: The unique key of the account
+        :return: The matching shape generator summaries
+        :rtype: list[ShapeGeneratorSummaryModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_shape_generator(self, key: str) -> ShapeGeneratorDetailsModel:
+        """ Find a shape generator by its unique key
+
+        :param str key: The unique key of the shape generator
+        :return: The shape generator's details
+        :rtype: ShapeGeneratorDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def update_shape_generator(self, key: str, generator: ShapeGeneratorUpdateModel) -> ShapeGeneratorDetailsModel:
+        """ Full-replace update of a generator's rules (name/params/boundary/label prefix). Does
+        not itself change its cached generated geometry - see regenerate_shape_generator.
+
+        :param str key: The unique key of the shape generator to update
+        :param ShapeGeneratorUpdateModel generator: The replacement definition
+        :return: The updated shape generator's details
+        :rtype: ShapeGeneratorDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def regenerate_shape_generator(self, key: str) -> ShapeGeneratorDetailsModel:
+        """ Re-run the generator's pipeline against its current rules and boundary shape, and
+        persist the result as the new cached generated geometry.
+
+        :param str key: The unique key of the shape generator to regenerate
+        :return: The shape generator's details, with its refreshed cached output
+        :rtype: ShapeGeneratorDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def commit_shape_generator(self, key: str) -> ShapeDetailsModel:
+        """ Snapshot the generator's cached generated geometry into a brand-new, independent
+        shape. The generator itself keeps running/re-tunable afterwards. Fails with a 400 if
+        nothing has been generated yet (regenerate first).
+
+        :param str key: The unique key of the shape generator to commit
+        :return: The new shape created from the generator's output
+        :rtype: ShapeDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def delete_shape_generator(self, key: str) -> None:
+        """ Delete a shape generator by its unique key
+
+        :param str key: The unique key of the shape generator to delete
         """
         pass
 
@@ -2042,6 +2409,24 @@ class InMotionSession(ABC):
 
         :return: The shape management interface
         :rtype: InMotionShape
+        """
+        pass
+
+    @abstractmethod
+    def shape_generator(self) -> InMotionShapeGenerator:
+        """ Retrieve the shape generator management interface for the session
+
+        :return: The shape generator management interface
+        :rtype: InMotionShapeGenerator
+        """
+        pass
+
+    @abstractmethod
+    def raster_overlay(self) -> InMotionRasterOverlay:
+        """ Retrieve the raster overlay management interface for the session
+
+        :return: The raster overlay management interface
+        :rtype: InMotionRasterOverlay
         """
         pass
 

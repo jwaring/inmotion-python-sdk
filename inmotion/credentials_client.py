@@ -1,3 +1,5 @@
+import marshmallow_dataclass
+
 from inmotion.accounts import InMotionAccountsImpl
 from inmotion.activities import InMotionActivitiesImpl
 from inmotion.activity_config import InMotionActivityConfigImpl
@@ -6,10 +8,12 @@ from inmotion.audit import InMotionAuditImpl
 from inmotion.datastream import InMotionDataStreamImpl
 from inmotion.devkey import InMotionDevKeysImpl
 from inmotion.event import InMotionEventsImpl
-from inmotion.exceptions import InMotionAuthenticationError
+from inmotion.exceptions import InMotionAuthenticationError, InMotionMfaRequiredError
 from inmotion.folio import InMotionFolioImpl
 from inmotion.model import InMotionModelImpl
+from inmotion.raster_overlay import InMotionRasterOverlayImpl
 from inmotion.shape import InMotionShapeImpl
+from inmotion.shapegenerator import InMotionShapeGeneratorImpl
 from inmotion import (
     InMotionSession,
     InMotionAccounts,
@@ -22,11 +26,13 @@ from inmotion import (
     InMotionEvents,
     InMotionFolio,
     InMotionModel,
+    InMotionRasterOverlay,
     InMotionShape,
+    InMotionShapeGenerator,
     InMotionUpload,
     InMotionUser,
 )
-from inmotion.models import AuthenticationSessionModel
+from inmotion.models import AuthenticationSessionModel, MfaResendResultModel
 from inmotion.upload import InMotionUploadImpl
 from inmotion.user import InMotionUserImpl
 from inmotion.utils import build_im_headers, request_json, stringify
@@ -82,6 +88,12 @@ class InMotionCredentialsSession(InMotionSession):
     def shape(self) -> InMotionShape:
         return InMotionShapeImpl(self)
 
+    def shape_generator(self) -> InMotionShapeGenerator:
+        return InMotionShapeGeneratorImpl(self)
+
+    def raster_overlay(self) -> InMotionRasterOverlay:
+        return InMotionRasterOverlayImpl(self)
+
     def audit(self) -> InMotionAudit:
         return InMotionAuditImpl(self)
 
@@ -121,19 +133,66 @@ class InMotionCredentialsClient(object):
 
     def get_session(self, account: str, username: str, password: str) -> InMotionCredentialsSession:
         """
-         Connect to inMotion and create a session for the given account and user
+         Connect to inMotion and create a session for the given account and user.
+
+         Raises InMotionMfaRequiredError if the account has MFA enabled - catch it, challenge the
+         user for their MFA code, and call verify_mfa(account, error.mfa_token, code) to complete
+         the login.
         """
         login_details = stringify({'username': username, 'password': password, 'apiVersion': self._api_version})
-        capabilities = request_json('POST', self._base_url + "/api/latest/authenticate",
+        raw = request_json('POST', self._base_url + "/api/latest/authenticate",
+                            build_im_headers(
+                                dev_key=self._dev_key,
+                                dev_secret=self._dev_secret,
+                                content=login_details
+                            ),
+                            login_details,
+                            'Failed to authenticate to inMotion')
+
+        if raw.get('mfaPending'):
+            raise InMotionMfaRequiredError('MFA challenge required to complete authentication',
+                                            mfa_token=raw['mfaToken'],
+                                            method=raw['method'],
+                                            expires_in_seconds=raw['expiresInSeconds'])
+
+        capabilities = marshmallow_dataclass.class_schema(AuthenticationSessionModel)().load(raw)
+        return self._session_from_capabilities(account, capabilities)
+
+    def verify_mfa(self, account: str, mfa_token: str, code: str) -> InMotionCredentialsSession:
+        """
+         Complete a login that was interrupted by InMotionMfaRequiredError, by submitting the
+         user's MFA code against the pending token.
+        """
+        verify_details = stringify({'code': code, 'apiVersion': self._api_version})
+        capabilities = request_json('POST', self._base_url + "/api/latest/authenticate/mfa",
                                      build_im_headers(
                                          dev_key=self._dev_key,
                                          dev_secret=self._dev_secret,
-                                         content=login_details
+                                         content=verify_details,
+                                         extra_name='X-Auth-Token',
+                                         extra_value=mfa_token,
                                      ),
-                                     login_details,
-                                     'Failed to authenticate to inMotion',
+                                     verify_details,
+                                     'Failed to verify MFA challenge',
                                      AuthenticationSessionModel)
+        return self._session_from_capabilities(account, capabilities)
 
+    def resend_mfa(self, mfa_token: str) -> MfaResendResultModel:
+        """ Regenerate/resend the MFA challenge code for the account behind a pending token
+        (EMAIL/SMS only - TOTP has no resend concept). """
+        return request_json('POST', self._base_url + "/api/latest/authenticate/mfa/resend",
+                             build_im_headers(
+                                 dev_key=self._dev_key,
+                                 dev_secret=self._dev_secret,
+                                 content='',
+                                 extra_name='X-Auth-Token',
+                                 extra_value=mfa_token,
+                             ),
+                             '',
+                             'Failed to resend MFA challenge',
+                             MfaResendResultModel)
+
+    def _session_from_capabilities(self, account: str, capabilities: AuthenticationSessionModel) -> InMotionCredentialsSession:
         match capabilities.status:
             case 'active':
                 return InMotionCredentialsSession(self._base_url,

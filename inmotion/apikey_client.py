@@ -9,7 +9,9 @@ from inmotion.event import InMotionEventsImpl
 from inmotion.exceptions import InMotionAuthenticationError
 from inmotion.folio import InMotionFolioImpl
 from inmotion.model import InMotionModelImpl
+from inmotion.raster_overlay import InMotionRasterOverlayImpl
 from inmotion.shape import InMotionShapeImpl
+from inmotion.shapegenerator import InMotionShapeGeneratorImpl
 from inmotion import (
     InMotionSession,
     InMotionAccounts,
@@ -22,7 +24,9 @@ from inmotion import (
     InMotionEvents,
     InMotionFolio,
     InMotionModel,
+    InMotionRasterOverlay,
     InMotionShape,
+    InMotionShapeGenerator,
     InMotionUpload,
     InMotionUser,
 )
@@ -79,6 +83,12 @@ class InMotionAPIKeySession(InMotionSession):
 
     def shape(self) -> InMotionShape:
         return InMotionShapeImpl(self)
+
+    def shape_generator(self) -> InMotionShapeGenerator:
+        return InMotionShapeGeneratorImpl(self)
+
+    def raster_overlay(self) -> InMotionRasterOverlay:
+        return InMotionRasterOverlayImpl(self)
 
     def audit(self) -> InMotionAudit:
         return InMotionAuditImpl(self)

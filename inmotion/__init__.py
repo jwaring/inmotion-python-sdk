@@ -10,7 +10,9 @@ from inmotion.api import (
     InMotionEvents,
     InMotionFolio,
     InMotionModel,
+    InMotionRasterOverlay,
     InMotionShape,
+    InMotionShapeGenerator,
     InMotionUpload,
     InMotionUser,
 )
@@ -27,7 +29,9 @@ __all__ = [
     "InMotionEvents",
     "InMotionFolio",
     "InMotionModel",
+    "InMotionRasterOverlay",
     "InMotionShape",
+    "InMotionShapeGenerator",
     "InMotionUpload",
     "InMotionUser",
 ]
