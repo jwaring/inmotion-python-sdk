@@ -4,20 +4,22 @@ import pytest
 
 from inmotion.credentials_client import InMotionCredentialsClient, InMotionCredentialsSession
 from inmotion.exceptions import InMotionAuthenticationError
-from inmotion.models import AuthenticationSessionModel
 
 
-def _auth_session(status: str, api_path: str = "/api/v2", requested_version: str = "2.0.0") -> AuthenticationSessionModel:
-    return AuthenticationSessionModel(
-        token="tok-123",
-        copyright="c",
-        highestAvailableVersion="2.0.0",
-        status=status,
-        apiPath=api_path,
-        openApiUrl="http://example.test/openapi",
-        requestedVersion=requested_version,
-        requestedVersionExpiryDate=None,
-    )
+def _auth_session(status: str, api_path: str = "/api/v2", requested_version: str = "2.0.0") -> dict:
+    """A raw JSON dict, matching what request_json(model=None) actually returns - get_session
+    inspects this dict for 'mfaPending' before loading it as an AuthenticationSessionModel, so it
+    can't be mocked as an already-loaded model instance."""
+    return {
+        "token": "tok-123",
+        "copyright": "c",
+        "highestAvailableVersion": "2.0.0",
+        "status": status,
+        "apiPath": api_path,
+        "openApiUrl": "http://example.test/openapi",
+        "requestedVersion": requested_version,
+        "requestedVersionExpiryDate": None,
+    }
 
 
 def _client() -> InMotionCredentialsClient:

@@ -239,6 +239,17 @@ class DateTimeListValueAttrModel(AttributeValueModel):
         return [datetime.fromtimestamp(v / 1000.0) for v in self.value]
 
 @dataclass
+class AttrKindValueModel:
+    """The wire format the API actually sends/accepts for attrs maps on
+    UserModel/UserAttributesModel/ActivityVariableMetadataModel:
+    {"kind": "STRING", "value": <scalar-or-array>}. There is no "multiple" field on
+    the wire; whether an attribute is multi-valued is implied by value being a JSON
+    array. Distinct from AttributeModel above (which backs a different, currently
+    unused write-side polymorphic-subclass API)."""
+    kind: str
+    value: Any = None
+
+@dataclass
 class MessageResponseModel:
     success: bool
     message: Optional[str]
@@ -250,7 +261,7 @@ class UserModel:
     displayName: str
     email: str
     status: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     licenseVersion: str
     licenseAccepted: int
     joined: int
@@ -279,7 +290,7 @@ class UserAttributesModel:
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     preferredUnitSystem: Optional[str] = None
 
 @dataclass
@@ -315,7 +326,7 @@ class AccountCreatorModel:
     status: str
     address: Optional[AddressModel]
     accountType: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: list[str]
     joined: int
     expiration: Optional[datetime]
@@ -329,7 +340,7 @@ class AccountModel:
     name: str
     address: Optional[AddressModel]
     accountType: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: list[str]
 
 @dataclass
@@ -363,7 +374,7 @@ class AccountDetailsModel:
     address: Optional[AddressModel]
     accountType: AccountType
     features: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: list[str]
     tokenRemaining: int
     tokenRenewalDate: int
@@ -442,7 +453,7 @@ class UserRegistrationModel:
     password: str
     displayName: str
     email: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     licenseAccepted: int
     publicUserName: bool
     firstName: Optional[str]
@@ -459,7 +470,7 @@ class AccountRegistrationModel:
     address: Optional[AddressModel]
     accountType: AccountType
     profiles: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
 
 @dataclass
 class AccountUserUnregisteredModel:
@@ -742,7 +753,7 @@ class DSVariableModel:
     kind: DataKind
     profile: str
     dimLengths: dict[str, int]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     recordDim: Optional[str] = None
     stdDataType: Optional[str] = None
 
@@ -819,7 +830,7 @@ class DataStreamCreatorModel:
     acqConv: str
     coordConv: str
     timezone: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     created: int
     appKey: Optional[str] = None
 
@@ -840,7 +851,7 @@ class DataStreamModel:
     acqConv: str
     coordConv: str
     timezone: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     dataChannels: dict[str, DataChannelModel]
     created: int
     appKey: Optional[str] = None
@@ -957,7 +968,7 @@ class DataStreamRecordsBlobMetadataModel(DataStreamBlobMetadataModel):
 @dataclass
 class DataStreamBlobSummaryModel(DataStreamBlobMetadataModel):
     dsSummary: DataStreamSummaryModel
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: dict[str, list[DataStreamBlobMetadataModel]]
 
 @dataclass
@@ -1071,7 +1082,7 @@ class StandardDataTypeModel:
     kind: str
     units: str
     profiles: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     description: Optional[str]
     variantType: Optional[StandardDataVariantTypeModel]
     modulo: Optional[bool]
@@ -1099,7 +1110,7 @@ class FolioItemModel:
     owned: Optional[bool] = None
     format: Optional[str] = None
     content: Optional[str] = None
-    attrs: dict[str, AttributeModel] = field(default_factory=dict)
+    attrs: dict[str, AttrKindValueModel] = field(default_factory=dict)
 
 @dataclass
 class FolioSectionModel:
@@ -1108,7 +1119,7 @@ class FolioSectionModel:
     description: str
     created: int
     lastUpdated: int
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     items: list[FolioItemModel]
     sections: list['FolioSectionModel']
 
@@ -1121,7 +1132,7 @@ class FolioSectionModel:
 @dataclass
 class FolioRootModel:
     """ The top of a Folio's content tree - like a FolioSectionModel, but with no name of its own. """
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     items: list[FolioItemModel]
     sections: list[FolioSectionModel]
 
@@ -1209,14 +1220,14 @@ class FolioSummaryModel:
 class FolioSectionCreateModel:
     name: str
     description: str
-    attrs: dict[str, AttributeModel] = field(default_factory=dict)
+    attrs: dict[str, AttrKindValueModel] = field(default_factory=dict)
 
 @dataclass
 class FolioSectionUpdateModel:
     """ Only the fields supplied change; omitted fields are left as-is. """
     name: Optional[str] = None
     description: Optional[str] = None
-    attrs: Optional[dict[str, AttributeModel]] = None
+    attrs: Optional[dict[str, AttrKindValueModel]] = None
 
 @dataclass
 class FolioValidationIssueModel:
@@ -1553,11 +1564,15 @@ class ActivityDetailsModel:
 
 @dataclass
 class ActivityBlockStatisticsModel:
+    """Matches encodeTrackBlockStatistics/encodeSiteBlockStatistics on the API side:
+    "duration" is always present, and the geo extent (if any) is spread as four flat
+    optional keys (minLat/maxLat/minLon/maxLon) rather than a nested "geoExtent"
+    object."""
     nRecords: int
     startTime: int
     finishTime: int
+    duration: int
     statistics: dict[str, VariableStatisticsModel]
-    geoExtent: Optional[GeoExtentModel]
 
     def start_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.startTime / 1000.0)
@@ -1580,7 +1595,7 @@ class ActivityVariableMetadataModel:
     displayUnits: str
     displayUnitsUnicode: Optional[str]
     profiles: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     sdtKey: Optional[str]
     validRange: Optional[ValidRangeModel]
     filters: Optional[list[DataFilterModel]]
@@ -1642,7 +1657,7 @@ class SiteRecordsMapModel(dict[str, list[Optional[float]]]):
 
 @dataclass
 class ActivityRecordsModel:
-    records: dict[str, list[Optional[SensorValueModel]]]
+    records: dict[str, list[Optional[Any]]]
     metadata: dict[str, ActivityVariableMetadataModel]
 
 @dataclass
@@ -1666,14 +1681,14 @@ class TrackCreateActivityBatchModel:
     activity: ActivityModel
     recordInterval: int
     seqKey: Optional[str] = None
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
 
 @dataclass
 class TrackUpdateActivityBatchModel:
     key: str
     seqKey: Optional[str] = None
     activity: Optional[ActivityModel] = None
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
 
 @dataclass
 class TrackActivityBatchCommandsModel:
@@ -1686,7 +1701,7 @@ class SiteCreateActivityBatchModel:
     location: ActivityLocationModel
     recordInterval: int
     seqKey: Optional[str] = None
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
 
 @dataclass
 class SiteUpdateActivityBatchModel:
@@ -1694,7 +1709,7 @@ class SiteUpdateActivityBatchModel:
     seqKey: Optional[str] = None
     activity: Optional[ActivityModel] = None
     location: Optional[ActivityLocationModel] = None
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
 
 @dataclass
 class SiteActivityBatchCommandsModel:
@@ -1757,12 +1772,16 @@ class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
     startTime: int
     finishTime: int
+    duration: int
     statistics: dict[str, VariableStatisticsModel]
-    geoExtent: Optional[GeoExtentModel]
     distance: float
     ascent: float
     descent: float
     displacement: float
+    minLat: Optional[float] = None
+    maxLat: Optional[float] = None
+    minLon: Optional[float] = None
+    maxLon: Optional[float] = None
 
     def start_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.startTime / 1000.0)
@@ -1800,7 +1819,7 @@ class ActivityTrackStatisticsModel:
 
 @dataclass
 class TrackRecordsModel(ActivityRecordsModel):
-    records: dict[str, list[Optional[SensorValueModel]]]
+    records: dict[str, list[Optional[Any]]]
     metadata: dict[str, ActivityVariableMetadataModel]
     markers: Optional[list[ActivityTrackMarkerModel]]
     statistics: Optional[ActivityTrackStatisticsModel]
@@ -1819,8 +1838,12 @@ class ActivitySiteBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
     startTime: int
     finishTime: int
+    duration: int
     statistics: dict[str, VariableStatisticsModel]
-    geoExtent: Optional[GeoExtentModel]
+    minLat: Optional[float] = None
+    maxLat: Optional[float] = None
+    minLon: Optional[float] = None
+    maxLon: Optional[float] = None
 
     def start_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.startTime / 1000.0)
@@ -1862,8 +1885,9 @@ class UpdateSiteActivityModel:
 
 @dataclass
 class SiteRecordsModel(ActivityRecordsModel):
-    records: dict[str, list[Optional[SensorValueModel]]]
+    records: dict[str, list[Optional[Any]]]
     metadata: dict[str, ActivityVariableMetadataModel]
+    location: ActivityLocationModel
     statistics: Optional[ActivitySiteStatisticsModel]
 
 @dataclass
