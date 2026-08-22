@@ -4,66 +4,77 @@ A Python Software Development Kit (SDK) for integration with inMotion APIs.
 
 This is still a fledgling project as only a handful of endpoints have been implemented.
 
+Full API reference (generated from docstrings): https://inmotion.io/assets/sdk-docs/inmotion.html
+
 # Prerequisites
 
 * Python 3.10 or higher
+* An inMotion account with either a Dev Key/Secret + API Key pair, or a username/password —
+  see "Authenticating" below for where to create these
 
-# Build
-
-To build the SDK, you can use the following command:
-
-```bash
-uv build
-```
-
-# Generate Docs
-
-Static HTML API docs, generated from the package's docstrings via [pdoc](https://pdoc.dev/):
+# Install
 
 ```bash
-bin/generate-docs.sh
+pip install inmotion-sdk
 ```
 
-Output lands in `docs/` by default (override with `INMOTION_DOCS_DIR`); it's gitignored since
-it's a generated artifact, not source.
+The distribution is `inmotion-sdk`, but the importable package is still `inmotion`:
 
-# Unit Tests
+```python
+import inmotion
+```
 
-The `tests/` directory contains a `pytest`-based unit test suite covering request signing, error
-handling, and the API key / credentials client authentication flows. These tests mock all HTTP
-calls, so no live inMotion environment is required.
+# Quickstart
+
+Every operation in this SDK hangs off a `session`, obtained from a client. There are two ways to
+authenticate, depending on what credentials you have.
+
+## Authenticating with a Dev Key/Secret + API Key
+
+Create a Dev Key/Secret under your inMotion account's `Settings` menu, `Dev Keys` tab (only shown
+if the account allows key creation), and an API Key under the `API Keys` tab (`Consumer` authority
+or higher is recommended). You'll also need your account key.
+
+```python
+from inmotion.apikey_client import InMotionAPIKeyClient
+
+client = InMotionAPIKeyClient(
+    base_url="https://api.inmotion.io",
+    dev_key="...",
+    dev_secret="...",
+    api_key="...",
+)
+session = client.get_session(account="...")
+```
+
+## Authenticating with a username and password
+
+```python
+from inmotion.credentials_client import InMotionCredentialsClient
+
+client = InMotionCredentialsClient(base_url="https://api.inmotion.io", dev_key="...", dev_secret="...")
+session = client.get_session(account="...", username="...", password="...")
+```
+
+Once you have a `session`, it exposes the feature areas documented below, e.g.
+`session.activities()`, `session.accounts()`, `session.folio()`.
+
+# Examples
+
+`examples/` has two small, self-contained scripts demonstrating the Site and Track activity APIs:
+
+- `site_timeseries_example.py` — generates a synthetic weather-sensor CSV (temperature + humidity),
+  then reads it back and uploads it as a Site activity timeseries.
+- `track_timeseries_example.py` — generates a synthetic vehicle-track CSV (lat/lon/altitude +
+  speed), then reads it back and uploads it as a Track activity timeseries.
+
+Each script both generates its own input data and uploads it, so there's nothing to fetch — they're
+meant to be read top-to-bottom as a concrete illustration of find-or-create-activity plus
+publish-records. To run one:
 
 ```bash
-source .venv/bin/activate
-uv pip install -e ".[dev]"
-python -m pytest tests/
-```
-
-# Integration Tests
-
-* Ensure that there is an inMotion integration test environment available.
-* Configure the environment file (`.env.test` in the root directory) with the necessary credentials and URLs.
-
-```dotenv
-BASE_URL="http://localhost:9000"
-DEV_KEY="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-DEV_SECRET="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-API_KEY="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-ACCOUNT="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-```
-
-The `DEV_KEY`, `DEV_SECRET` can be created using the inMotion `Settings ...` menu under the right hand side. If the account allows the
-creation of keys, a tab called `Dev Keys` will be shown. Create the key / secret and copy the values.
-
-The `API_KEY` can be created using the `API Keys` tab. The `ACCOUNT` key and will need to be copied. Note that it is recommended that the
-API Key be at least `Consumer` authority to support the text.
-
-Please run the tests in a virtual environment to avoid dependency conflicts.
-
-```bash
-source .venv/bin/activate
-uv pip install -e .
-python3 scripts/test.py
+cp examples/.env.example examples/.env   # fill in real credentials
+python3 examples/site_timeseries_example.py
 ```
 
 # Feature Areas
@@ -386,20 +397,64 @@ the server doesn't have. The blob byte-upload methods (`update_invariant_blob_da
 `update_blob_record_data`) have been verified against the server's signing code but not yet against
 a live inMotion instance — test them against `.env.test` before relying on them in production.
 
-# Examples
+# Development
 
-`examples/` has two small, self-contained scripts demonstrating the Site and Track activity APIs:
+The following sections are for contributing to the SDK itself, not for consuming it.
 
-- `site_timeseries_example.py` — generates a synthetic weather-sensor CSV (temperature + humidity),
-  then reads it back and uploads it as a Site activity timeseries.
-- `track_timeseries_example.py` — generates a synthetic vehicle-track CSV (lat/lon/altitude +
-  speed), then reads it back and uploads it as a Track activity timeseries.
+## Build
 
-Each script both generates its own input data and uploads it, so there's nothing to fetch — they're
-meant to be read top-to-bottom as a concrete illustration of find-or-create-activity plus
-publish-records. To run one:
+To build the SDK, you can use the following command:
 
 ```bash
-cp examples/.env.example examples/.env   # fill in real credentials
-python3 examples/site_timeseries_example.py
+uv build
+```
+
+## Generate Docs
+
+Static HTML API docs, generated from the package's docstrings via [pdoc](https://pdoc.dev/):
+
+```bash
+bin/generate-docs.sh
+```
+
+Output lands in `docs/` by default (override with `INMOTION_DOCS_DIR`); it's gitignored since
+it's a generated artifact, not source.
+
+## Unit Tests
+
+The `tests/` directory contains a `pytest`-based unit test suite covering request signing, error
+handling, and the API key / credentials client authentication flows. These tests mock all HTTP
+calls, so no live inMotion environment is required.
+
+```bash
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+python -m pytest tests/
+```
+
+## Integration Tests
+
+* Ensure that there is an inMotion integration test environment available.
+* Configure the environment file (`.env.test` in the root directory) with the necessary credentials and URLs.
+
+```dotenv
+BASE_URL="http://localhost:9000"
+DEV_KEY="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+DEV_SECRET="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+API_KEY="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+ACCOUNT="xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+The `DEV_KEY`, `DEV_SECRET` can be created using the inMotion `Settings ...` menu under the right hand side. If the account allows the
+creation of keys, a tab called `Dev Keys` will be shown. Create the key / secret and copy the values.
+
+The `API_KEY` can be created using the `API Keys` tab. The `ACCOUNT` key and will need to be copied. Note that it is recommended that the
+API Key be at least `Consumer` authority to support the text.
+
+Please run the tests in a virtual environment to avoid dependency conflicts.
+
+```bash
+source .venv/bin/activate
+uv pip install -e .
+python3 scripts/test.py
 ```

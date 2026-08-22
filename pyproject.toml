@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "inmotion"
+name = "inmotion-sdk"
 version = "0.2.2"
 description = "An SDK for integrating with inMotion API"
 authors = [{ name = "Jason Waring", email = "jason@softwaringsolutions.com" }]
@@ -23,6 +23,12 @@ classifiers = [
           "Programming Language :: Python :: 3 :: Only",
           "Intended Audience :: Developers",
           "Operating System :: OS Independent"]
+
+[project.urls]
+Homepage = "https://github.com/jwaring/inmotion-python-sdk"
+Repository = "https://github.com/jwaring/inmotion-python-sdk"
+Issues = "https://github.com/jwaring/inmotion-python-sdk/issues"
+Documentation = "https://inmotion.io/assets/sdk-docs/inmotion.html"
 
 [project.optional-dependencies]
 dev = ["pytest", "tox", "pdoc"]

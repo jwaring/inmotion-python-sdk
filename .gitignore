@@ -15,4 +15,4 @@ examples/*.csv
 
 # Coding-agent context (kept locally, not committed)
 CLAUDE.md
-.claude/skills/
+.claude/

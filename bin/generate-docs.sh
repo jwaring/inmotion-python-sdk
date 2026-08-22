@@ -20,7 +20,7 @@ uv run pdoc \
     --template-directory docs-template \
     --logo inmotion-logo.svg \
     --logo-link https://inmotion.io \
-    --footer-text "inmotion $(uv run python -c 'import importlib.metadata as m; print(m.version("inmotion"))')" \
+    --footer-text "inmotion $(uv run python -c 'import importlib.metadata as m; print(m.version("inmotion-sdk"))')" \
     inmotion
 
 cp docs-template/inmotion-logo.svg "$DOCS_DIR/"
