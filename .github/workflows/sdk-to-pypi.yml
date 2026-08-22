@@ -1,0 +1,39 @@
+#
+# Build the Python SDK and publish it to PyPI when a version tag is pushed.
+#
+name: sdk-to-pypi
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout SDK
+        uses: actions/checkout@v3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Verify tag matches pyproject.toml version
+        run: |
+          SDK_VERSION=`grep 'version =' pyproject.toml | cut -d = -f 2 | tr -d '[ "]'`
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$SDK_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match pyproject.toml version $SDK_VERSION"
+            exit 1
+          fi
+
+      - name: Build
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
