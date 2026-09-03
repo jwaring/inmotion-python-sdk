@@ -8,7 +8,7 @@ from inmotion.models import (
     RasterOverlaySummaryModel,
     SetModelFieldValueRequestModel,
 )
-from inmotion.utils import request_json, stringify
+from inmotion.utils import request_json, request_raw, stringify
 
 
 def _query_string(**params) -> str:
@@ -50,6 +50,15 @@ class InMotionRasterOverlayImpl(InMotionRasterOverlay):
                      self._session.build_headers(content=''),
                      '',
                      'Failed to delete raster overlay')
+
+    def render_map(self, key: str, bbox: tuple[float, float, float, float], width: int, height: int,
+                   token: str, crs: str = 'EPSG:3857') -> bytes:
+        qs = _query_string(token=token, CRS=crs, WIDTH=width, HEIGHT=height,
+                           BBOX=','.join(str(coord) for coord in bbox))
+        return request_raw('GET', f"{self._prefix_path}/{key}/map{qs}",
+                           self._session.build_headers(content=''),
+                           '',
+                           'Failed to render raster overlay map')
 
     def find_model_field_groups(self, key: str) -> list[ModelFieldGroupModel]:
         return request_json('GET', f"{self._prefix_path}/{key}/model-fields",

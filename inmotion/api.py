@@ -60,6 +60,7 @@ from inmotion.models import (
     EventUpdateModel,
     FolioDetailsModel,
     FolioItemModel,
+    FolioLockModel,
     FolioModel,
     FolioRootModel,
     FolioSectionCreateModel,
@@ -77,6 +78,10 @@ from inmotion.models import (
     ModelFieldGroupModel,
     ModelSummaryModel,
     ModelTreeModel,
+    MqttDeploymentRegistrationModel,
+    MqttDeploymentUpdateModel,
+    NearbyTrackModel,
+    NearbyTracksFilterModel,
     OTCModel,
     QCConfigModel,
     RasterOverlayDetailsModel,
@@ -1489,6 +1494,20 @@ class InMotionFolio(ABC):
         pass
 
     @abstractmethod
+    def set_folio_locked(self, key: str, locked: bool) -> FolioDetailsModel:
+        """ Lock or unlock a folio against further Contributor edits, independent of how it was
+        created. Any Contributor (or above) may call this at any time, regardless of the folio's
+        current locked state - unlike update_folio, this is never blocked by the folio being
+        locked or API-created.
+
+        :param str key: The unique key of the folio
+        :param bool locked: True to lock, False to unlock
+        :return: The folio's details, with its updated locked state
+        :rtype: FolioDetailsModel
+        """
+        pass
+
+    @abstractmethod
     def find_folio(self, key: str) -> FolioDetailsModel:
         """ Find a folio by its unique key, including its full section tree
 
@@ -1705,6 +1724,17 @@ class InMotionShape(ABC):
         pass
 
     @abstractmethod
+    def duplicate_shape(self, key: str) -> ShapeDetailsModel:
+        """ Copy an existing shape's geometry and metadata into a new, independent shape owned by
+        the caller.
+
+        :param str key: The unique key of the shape to duplicate
+        :return: The new, duplicated shape's details
+        :rtype: ShapeDetailsModel
+        """
+        pass
+
+    @abstractmethod
     def delete_shape(self, key: str) -> None:
         """ Delete a shape by its unique key
 
@@ -1779,6 +1809,28 @@ class InMotionRasterOverlay(ABC):
         """ Delete a raster overlay by its unique key
 
         :param str key: The unique key of the raster overlay to delete
+        """
+        pass
+
+    @abstractmethod
+    def render_map(self, key: str, bbox: tuple[float, float, float, float], width: int, height: int,
+                   token: str, crs: str = 'EPSG:3857') -> bytes:
+        """ Render a WMS ``GetMap``-equivalent PNG tile for a raster overlay.
+
+        This endpoint is gated by the ``inmotion.wms.enabled`` server kill-switch (disabled in
+        some deployments) in addition to the SHAPE_EDITOR account feature. It is not
+        header-authenticated: pass a short-lived ``token`` obtained from the ``mapToken`` field of
+        a preceding ``find_raster_overlay`` or ``update_raster_overlay_style`` call (the token is
+        re-minted on every such call and expires ~30 minutes after it was issued).
+
+        :param str key: The unique key of the raster overlay
+        :param tuple bbox: ``(minX, minY, maxX, maxY)`` in the requested CRS
+        :param int width: Output width in pixels
+        :param int height: Output height in pixels
+        :param str token: A current ``mapToken`` for this raster overlay
+        :param str crs: Coordinate reference system - only ``EPSG:3857`` is served
+        :return: The rendered tile as PNG bytes
+        :rtype: bytes
         """
         pass
 
@@ -1878,6 +1930,31 @@ class InMotionShapeGenerator(ABC):
         pass
 
     @abstractmethod
+    def preview_shape_generator(self, key: str, seed_indices: list[int]) -> dict:
+        """ Incrementally recompute only the cells around the given seed indices and return them
+        as a GeoJSON FeatureCollection, without touching the generator's cached
+        `generatedGeojson`. For instant feedback on a seed drag; voronoi generators only.
+
+        :param str key: The unique key of the shape generator
+        :param list[int] seed_indices: Indices of the seed points that moved
+        :return: A GeoJSON FeatureCollection of the recomputed cells
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def find_nearby_tracks(self, account_key: str, track_filter: NearbyTracksFilterModel) -> list[NearbyTrackModel]:
+        """ Find the account's Track activities whose recorded extent overlaps a bounding box -
+        candidate input for idw/nn shape generators.
+
+        :param str account_key: The unique key of the account
+        :param NearbyTracksFilterModel track_filter: The query bounding box
+        :return: The matching Track candidates
+        :rtype: list[NearbyTrackModel]
+        """
+        pass
+
+    @abstractmethod
     def delete_shape_generator(self, key: str) -> None:
         """ Delete a shape generator by its unique key
 
@@ -1897,6 +1974,99 @@ class InMotionAudit(ABC):
         :param ExternalAuditBatchModel batch: The records to write, optionally scoped to an account
         :return: One result per submitted record, in the same order, each carrying its own status
         :rtype: list[ActivityBatchResultModel]
+        """
+        pass
+
+
+class InMotionMqttDeployment(ABC):
+    """ MQTT ingestion deployments: a `type: mqtt` (schema-v2) Device Config is the *class*;
+    registering a deployment against a published version of it is what creates the backing Site
+    activity (sensor schema from the config's `variables:` block) and mints the scoped,
+    publish-only API key the device authenticates to the broker with.
+
+    Every method is admin-gated on the account. The scoped key value is returned exactly once, in
+    the register / rotate-key response - it is not recoverable afterwards. Responses have no fixed
+    schema, so each method returns a raw ``dict`` (or ``list[dict]``). """
+
+    @abstractmethod
+    def register_mqtt_deployment(self, account_key: str, registration: MqttDeploymentRegistrationModel) -> dict:
+        """ Register a deployment against a published `type: mqtt` device-config. Creates a Site
+        activity from the config's `variables:` block, mints a scoped publish-only key, and
+        returns ``{deploymentId, apiKey, keyName, keyExpiryOn, topicPrefix, brokerHost,
+        activityKey, deviceConfigName, deviceConfigVersion, deviceConfigSemanticVersion}``. The
+        ``apiKey`` is shown only in this response.
+
+        :param str account_key: The unique key of the account
+        :param MqttDeploymentRegistrationModel registration: The deployment to register
+        :return: The registered deployment, including its one-time publish key
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def list_mqtt_deployments(self, account_key: str) -> dict:
+        """ List the account's MQTT ingestion deployments as ``{"deployments": [...]}``. Each row
+        carries ``activityExists`` - False (or None if it could not be checked) means the backing
+        Site activity has been deleted and the deployment must be re-registered.
+
+        :param str account_key: The unique key of the account
+        :return: ``{"deployments": [...]}``
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_mqtt_deployment(self, account_key: str, deployment_id: str, update: MqttDeploymentUpdateModel) -> dict:
+        """ Update mutable properties of a deployment (currently only ``name``). The backing Site
+        activity is not renamed.
+
+        :param str account_key: The unique key of the account
+        :param str deployment_id: The deployment's id
+        :param MqttDeploymentUpdateModel update: The fields to change
+        :return: ``{deploymentId, name}``
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def delete_mqtt_deployment(self, account_key: str, deployment_id: str) -> dict:
+        """ Remove the deployment row and revoke its scoped publish key. The backing Site activity
+        is left in place (archival is a separate action); the response reports
+        ``{deploymentId, activityKey, activityRetained}``.
+
+        :param str account_key: The unique key of the account
+        :param str deployment_id: The deployment's id
+        :return: ``{deploymentId, activityKey, activityRetained}``
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def repoint_mqtt_deployment(self, account_key: str, deployment_id: str) -> dict:
+        """ Move the deployment to the account's newest published version of the same
+        device-config so the subscriber picks up its new decode/routing/scaling rules. The
+        backing activity's variable set is fixed, so any variables a newer version adds come back
+        in ``unmappedVariables``. Idempotent - returns ``changed=False`` when already current.
+
+        :param str account_key: The unique key of the account
+        :param str deployment_id: The deployment's id
+        :return: The re-point outcome (``changed`` plus version details, and ``unmappedVariables``
+            when it moved)
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def rotate_mqtt_deployment_key(self, account_key: str, deployment_id: str) -> dict:
+        """ Mint a fresh publish-only key and revoke the old one, for a lost or compromised
+        credential. The ``deploymentId``, ``topicPrefix`` and backing activity are unchanged; the
+        new key is returned once (``{deploymentId, apiKey, topicPrefix, brokerHost}``) and any
+        live broker session on the old key is force-disconnected.
+
+        :param str account_key: The unique key of the account
+        :param str deployment_id: The deployment's id
+        :return: ``{deploymentId, apiKey, topicPrefix, brokerHost}``
+        :rtype: dict
         """
         pass
 
@@ -2445,6 +2615,15 @@ class InMotionSession(ABC):
 
         :return: The model catalogue interface
         :rtype: InMotionModel
+        """
+        pass
+
+    @abstractmethod
+    def mqtt_deployment(self) -> InMotionMqttDeployment:
+        """ Retrieve the MQTT ingestion deployment interface for the session
+
+        :return: The MQTT ingestion deployment interface
+        :rtype: InMotionMqttDeployment
         """
         pass
 

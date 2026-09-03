@@ -8,6 +8,7 @@ from inmotion.api import InMotionSession, InMotionFolio
 from inmotion.models import (
     FolioDetailsModel,
     FolioItemModel,
+    FolioLockModel,
     FolioModel,
     FolioRootModel,
     FolioSectionCreateModel,
@@ -44,6 +45,14 @@ class InMotionFolioImpl(InMotionFolio):
                              self._session.build_headers(content=folio_data),
                              folio_data,
                              'Failed to update folio',
+                             FolioDetailsModel)
+
+    def set_folio_locked(self, key: str, locked: bool) -> FolioDetailsModel:
+        lock_data = stringify(FolioLockModel(locked=locked))
+        return request_json('POST', f"{self._prefix_path}/{key}/lock",
+                             self._session.build_headers(content=lock_data),
+                             lock_data,
+                             'Failed to set folio locked state',
                              FolioDetailsModel)
 
     def find_folio(self, key: str) -> FolioDetailsModel:

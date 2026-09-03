@@ -2,6 +2,8 @@ from urllib.parse import quote
 
 from inmotion.api import InMotionSession, InMotionShapeGenerator
 from inmotion.models import (
+    NearbyTrackModel,
+    NearbyTracksFilterModel,
     ShapeDetailsModel,
     ShapeGeneratorDetailsModel,
     ShapeGeneratorModel,
@@ -66,6 +68,21 @@ class InMotionShapeGeneratorImpl(InMotionShapeGenerator):
                              '',
                              'Failed to commit shape generator',
                              ShapeDetailsModel)
+
+    def preview_shape_generator(self, key: str, seed_indices: list[int]) -> dict:
+        preview_data = stringify({'seedIndices': list(seed_indices)})
+        return request_json('POST', f"{self._prefix_path}/{key}/preview",
+                             self._session.build_headers(content=preview_data),
+                             preview_data,
+                             'Failed to preview shape generator')
+
+    def find_nearby_tracks(self, account_key: str, track_filter: NearbyTracksFilterModel) -> list[NearbyTrackModel]:
+        filter_data = stringify(track_filter)
+        return request_json('POST', f"{self._prefix_path}/nearby-tracks/{account_key}",
+                             self._session.build_headers(content=filter_data),
+                             filter_data,
+                             'Failed to find nearby tracks',
+                             NearbyTrackModel, many=True)
 
     def delete_shape_generator(self, key: str) -> None:
         request_json('DELETE', f"{self._prefix_path}/{key}",

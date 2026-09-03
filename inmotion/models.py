@@ -553,10 +553,15 @@ class DeviceConfigSyncRequestModel:
         each, or the whole request fails (no partial results for a denied account).
     :param includeDevelopment: If true, each account's in-progress DEVELOPMENT version is
         included alongside its current PUBLISHED one (defaults to published-only).
+    :param maxSchemaVersion: Highest Device Config `schemaVersion` the caller can parse. Omitted
+        (or 1) means the server down-projects every entry to the frozen v1 shape and drops
+        `type: mqtt` entries entirely; pass 2 to receive canonical schema-v2 documents unchanged
+        (`variables`/`mqtt` blocks intact).
     """
     since: Optional[int] = None
     accountKeys: list[str] = field(default_factory=list)
     includeDevelopment: bool = False
+    maxSchemaVersion: Optional[int] = None
 
 @dataclass
 class DeviceConfigSyncEntryModel:
@@ -598,6 +603,34 @@ class DeviceConfigSyncResultModel:
     global_: list[DeviceConfigSyncEntryModel] = field(metadata={"data_key": "global"}, default_factory=list)
     globalDeprecated: list[str] = field(default_factory=list)
     accounts: list[DeviceConfigSyncAccountModel] = field(default_factory=list)
+
+@dataclass
+class MqttDeploymentRegistrationModel:
+    """ Body for `register_mqtt_deployment`. A deployment is the instance of a published
+    `type: mqtt` device-config: registering one creates the backing Site activity from the
+    config's `variables:` block and mints a scoped publish-only API key (returned once).
+
+    :param deviceConfigName: Name of a *published* `type: mqtt` device-config for the account.
+    :param name: Display name for the deployment (and the backing Site activity).
+    :param latitude: Deployment location latitude. Defaults to 0.0 server-side.
+    :param longitude: Deployment location longitude. Defaults to 0.0 server-side.
+    :param altitude: Deployment location altitude. Defaults to 0.0 server-side.
+    :param keyName: Label for the scoped publish key. Defaults to `name`.
+    :param keyExpiryOn: Optional `yyyy-MM-dd` expiry date for the publish key.
+    """
+    deviceConfigName: str
+    name: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    altitude: Optional[float] = None
+    keyName: Optional[str] = None
+    keyExpiryOn: Optional[str] = None
+
+@dataclass
+class MqttDeploymentUpdateModel:
+    """ Body for `update_mqtt_deployment`. Partial object - currently only `name` is mutable; the
+    backing Site activity is not renamed. """
+    name: str
 
 @dataclass
 class UserAccountSummaryModel:
@@ -1241,6 +1274,12 @@ class FolioValidationIssueModel:
 class FolioValidationReportModel:
     valid: bool
     issues: list[FolioValidationIssueModel]
+
+@dataclass
+class FolioLockModel:
+    """ Body for `set_folio_locked` - toggles whether a folio is locked against further
+    Contributor edits, independent of how it was created. """
+    locked: bool
 
 @dataclass
 class ShapeVariableModel:
@@ -2349,6 +2388,26 @@ class ShapeGeneratorUpdateModel:
     params: Any
     labelTemplate: str
     clipBoundaryShapeKey: Optional[str] = None
+
+@dataclass
+class NearbyTracksFilterModel:
+    """ Query bounding box for `find_nearby_tracks` - candidate Track input for idw/nn shape
+    generators. Typically the target Shape's own extent, widened client-side. """
+    minLatitude: float
+    maxLatitude: float
+    minLongitude: float
+    maxLongitude: float
+
+@dataclass
+class NearbyTrackModel:
+    """ One Track candidate returned by `find_nearby_tracks` - its key/name plus its own
+    geographic extent. """
+    key: str
+    name: str
+    minLatitude: float
+    maxLatitude: float
+    minLongitude: float
+    maxLongitude: float
 
 @dataclass
 class MfaChallengeModel:

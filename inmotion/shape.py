@@ -64,6 +64,13 @@ class InMotionShapeImpl(InMotionShape):
                              'Failed to update shape geometry',
                              ShapeDetailsModel)
 
+    def duplicate_shape(self, key: str) -> ShapeDetailsModel:
+        return request_json('POST', f"{self._prefix_path}/{key}/duplicate",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to duplicate shape',
+                             ShapeDetailsModel)
+
     def delete_shape(self, key: str) -> None:
         request_json('DELETE', f"{self._prefix_path}/{key}",
                      self._session.build_headers(content=''),

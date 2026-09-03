@@ -11,6 +11,7 @@ from inmotion.event import InMotionEventsImpl
 from inmotion.exceptions import InMotionAuthenticationError, InMotionMfaRequiredError
 from inmotion.folio import InMotionFolioImpl
 from inmotion.model import InMotionModelImpl
+from inmotion.mqtt_deployment import InMotionMqttDeploymentImpl
 from inmotion.raster_overlay import InMotionRasterOverlayImpl
 from inmotion.shape import InMotionShapeImpl
 from inmotion.shapegenerator import InMotionShapeGeneratorImpl
@@ -26,6 +27,7 @@ from inmotion import (
     InMotionEvents,
     InMotionFolio,
     InMotionModel,
+    InMotionMqttDeployment,
     InMotionRasterOverlay,
     InMotionShape,
     InMotionShapeGenerator,
@@ -99,6 +101,9 @@ class InMotionCredentialsSession(InMotionSession):
 
     def model(self) -> InMotionModel:
         return InMotionModelImpl(self)
+
+    def mqtt_deployment(self) -> InMotionMqttDeployment:
+        return InMotionMqttDeploymentImpl(self)
 
     def build_headers(self, content: str) -> dict[str, str]:
         return build_im_headers(dev_key=self._dev_key,

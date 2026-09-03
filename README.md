@@ -179,6 +179,10 @@ accounts.delete_device_config(account_key, created["name"])
 # System-wide (non-account-scoped) global tier, and a combined sync delta across global + accounts
 accounts.fetch_global_device_configs()
 accounts.sync_device_configs(DeviceConfigSyncRequestModel(accountKeys=[account_key]))
+# Pass maxSchemaVersion=2 to receive canonical schema-v2 documents (variables/mqtt blocks intact);
+# omitted or 1 means the server down-projects every entry to the frozen v1 shape and omits
+# `type: mqtt` entries entirely.
+accounts.sync_device_configs(DeviceConfigSyncRequestModel(accountKeys=[account_key], maxSchemaVersion=2))
 ```
 
 ## Activity Configuration
@@ -288,6 +292,7 @@ folio_api.update_folio(f.key, FolioModel(name="Site A (renamed)", description=".
 folio_api.find_folio(f.key)
 folio_api.find_folios(account_key, name="Site A")
 folio_api.find_folios_by_reference(account_key, data_stream_key)
+folio_api.set_folio_locked(f.key, True)   # lock/unlock against further Contributor edits
 
 # Sections and items are addressed by a "/"-separated `path` from the root (omitted = the root itself)
 folio_api.create_section(f.key, FolioSectionCreateModel(name="Sensors", description="..."))
@@ -321,12 +326,58 @@ shape_api.find_shape(s.key)
 shape_api.update_shape(s.key, ShapeUpdateModel(name="Field 12 (renamed)"))
 shape_api.update_shape_geometry(s.key, ShapeGeometryModel(geojson=updated_geojson_str))
 
+copy = shape_api.duplicate_shape(s.key)  # independent copy of geometry + metadata
 shape_api.delete_shape(s.key)
 ```
 
 A track activity's GPS records can also be converted into a standalone Route shape (gated by the
 "track-to-shape" account feature) via `session.activities().convert_track_to_route(track_key)`,
 which returns the new shape's key.
+
+## Raster Overlays
+
+`session.raster_overlay()` manages WMS-served raster/gridded imagery shown alongside vector
+shapes in the Shape Editor. There is no create/upload method — rasters are registered by a
+separate import tool. Access needs the SHAPE_EDITOR account feature, and tile rendering is
+additionally gated by the server's `inmotion.wms.enabled` kill-switch (off in some deployments).
+
+```python
+raster_api = session.raster_overlay()
+
+raster_api.find_raster_overlays(account_key)
+overlay = raster_api.find_raster_overlay(key)
+raster_api.update_raster_overlay_style(key, RasterOverlayStyleUpdateModel(rampName="viridis", alpha=0.8))
+raster_api.delete_raster_overlay(key)
+
+# Render a GetMap PNG tile. `render_map` is not header-authenticated: it takes a short-lived
+# `mapToken` re-minted on every find/update call above (it expires ~30 min after issue).
+png = raster_api.render_map(key, bbox=(minX, minY, maxX, maxY), width=512, height=512,
+                            token=overlay.mapToken)
+```
+
+## MQTT Ingestion Deployments
+
+`session.mqtt_deployment()` manages deployments of a `type: mqtt` (schema-v2) Device Config. The
+Device Config is the *class*; registering a deployment against a published version of it creates
+the backing Site activity (sensor schema from the config's `variables:` block) and mints a
+scoped, publish-only API key the device authenticates to the broker with. Every method is
+admin-gated on the account, and the key value is returned exactly once. Responses have no fixed
+schema, so each method returns a raw `dict`.
+
+```python
+mqtt = session.mqtt_deployment()
+
+reg = mqtt.register_mqtt_deployment(account_key, MqttDeploymentRegistrationModel(
+    deviceConfigName="Backyard Weather", name="Shed roof", latitude=-31.95, longitude=115.86))
+deployment_id = reg["deploymentId"]
+publish_key = reg["apiKey"]           # shown only here
+
+mqtt.list_mqtt_deployments(account_key)
+mqtt.update_mqtt_deployment(account_key, deployment_id, MqttDeploymentUpdateModel(name="Shed roof (N)"))
+mqtt.repoint_mqtt_deployment(account_key, deployment_id)      # move to the latest published config version
+mqtt.rotate_mqtt_deployment_key(account_key, deployment_id)   # new publish key, old one revoked
+mqtt.delete_mqtt_deployment(account_key, deployment_id)       # backing Site activity is retained
+```
 
 ## Events
 
