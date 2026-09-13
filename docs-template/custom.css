@@ -1,0 +1,9 @@
+/* Font stack to match inmotion.io (see inmotion.io/assets/css/custom.css). */
+body, .pdoc {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.pdoc .logo {
+    max-height: 1.1667rem; /* 1/3 of the previous 3.5rem */
+    width: auto;
+}

@@ -1,6 +1,12 @@
-from dataclasses import dataclass
+""" Dataclass models mirroring the inMotion REST API's JSON request/response shapes.
+
+Imported explicitly by name from consuming modules (activities.py, accounts.py, etc.) rather than
+via a wildcard import, so each module's dependencies stay visible at a glance.
+"""
+
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 class AccountType:
     FREE_PERSONAL = "I"
@@ -37,6 +43,7 @@ class DataReference:
 class CoordinateConvention:
     SITE = 'S'
     TRACK = 'T'
+    EVENT = 'E'
 
 class AcquisitionConvention:
     OBSERVATION = 'O'
@@ -103,6 +110,10 @@ class SensorValueDateTimeModel(SensorValueModel):
 class SensorValueBooleanModel(SensorValueModel):
     value: bool
 
+# Deliberately not a @dataclass: subclasses of AttributeValueModel add a
+# non-default `value` field, which must stay ordered before the defaulted
+# kind/multiple fields below — inheriting them as real dataclass fields would
+# violate dataclass's no-default-after-default field ordering rule.
 class AttributeModel:
     kind: AttributeKind
     multiple: bool
@@ -228,6 +239,17 @@ class DateTimeListValueAttrModel(AttributeValueModel):
         return [datetime.fromtimestamp(v / 1000.0) for v in self.value]
 
 @dataclass
+class AttrKindValueModel:
+    """The wire format the API actually sends/accepts for attrs maps on
+    UserModel/UserAttributesModel/ActivityVariableMetadataModel:
+    {"kind": "STRING", "value": <scalar-or-array>}. There is no "multiple" field on
+    the wire; whether an attribute is multi-valued is implied by value being a JSON
+    array. Distinct from AttributeModel above (which backs a different, currently
+    unused write-side polymorphic-subclass API)."""
+    kind: str
+    value: Any = None
+
+@dataclass
 class MessageResponseModel:
     success: bool
     message: Optional[str]
@@ -239,7 +261,7 @@ class UserModel:
     displayName: str
     email: str
     status: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     licenseVersion: str
     licenseAccepted: int
     joined: int
@@ -248,6 +270,7 @@ class UserModel:
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
+    preferredUnitSystem: Optional[str] = None
 
     def license_accepted_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
@@ -267,7 +290,8 @@ class UserAttributesModel:
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
+    preferredUnitSystem: Optional[str] = None
 
 @dataclass
 class UserPasswordRequestModel:
@@ -302,7 +326,7 @@ class AccountCreatorModel:
     status: str
     address: Optional[AddressModel]
     accountType: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: list[str]
     joined: int
     expiration: Optional[datetime]
@@ -316,7 +340,7 @@ class AccountModel:
     name: str
     address: Optional[AddressModel]
     accountType: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: list[str]
 
 @dataclass
@@ -350,7 +374,7 @@ class AccountDetailsModel:
     address: Optional[AddressModel]
     accountType: AccountType
     features: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: list[str]
     tokenRemaining: int
     tokenRenewalDate: int
@@ -397,13 +421,39 @@ class AccountTagsModel:
     tags: list[str]
 
 @dataclass
+class ActivityTypeModel:
+    """
+    :param highestAccuracy: "best", "high", "medium", "low"
+    :param nominalSpeed: "very fast", "fast", "medium", "slow", "very slow", "fixed"
+    :param navigationNature: "fitness", "automotive", "general", "other"
+    :param profile: The activity profile type (e.g. A - Agriculture).
+    :param allowedAdapters: Regular expressions selecting mobile application adapters by code.
+    """
+    key: str
+    name: str
+    highestAccuracy: str
+    nominalSpeed: str
+    navigationNature: str
+    icon: str
+    profile: str
+    allowedAdapters: list[str]
+    colour: Optional[str] = None
+    preferredUnitSystem: Optional[str] = None
+    deprecated: bool = False
+
+@dataclass
+class MasterDataModel:
+    profileTypes: list[AccountProfileTypeModel]
+    activityTypes: list[ActivityTypeModel]
+
+@dataclass
 class UserRegistrationModel:
     userKey: str
     userName: str
     password: str
     displayName: str
     email: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     licenseAccepted: int
     publicUserName: bool
     firstName: Optional[str]
@@ -420,7 +470,7 @@ class AccountRegistrationModel:
     address: Optional[AddressModel]
     accountType: AccountType
     profiles: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
 
 @dataclass
 class AccountUserUnregisteredModel:
@@ -444,6 +494,7 @@ class AccountUserSummaryModel:
     firstName: Optional[str]
     lastName: Optional[str]
     avatarUrl: Optional[str]
+    preferredUnitSystem: Optional[str] = None
 
     def license_accepted_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
@@ -481,7 +532,7 @@ class AccountUsersModel:
 class AccountAuditRecordModel:
     reasonCode: str
     context: str
-    data: Optional[any]
+    data: Optional[Any]
     updatedOn: int
     updatedBy: str
 
@@ -493,6 +544,93 @@ class AccountMarkedForDeletionModel:
     success: bool
     accountMarked: bool
     userMarked: bool
+
+@dataclass
+class DeviceConfigSyncRequestModel:
+    """
+    :param since: Epoch millis; omitted means "the beginning of time" (return everything active).
+    :param accountKeys: Accounts to include - caller must have at least consumer privilege on
+        each, or the whole request fails (no partial results for a denied account).
+    :param includeDevelopment: If true, each account's in-progress DEVELOPMENT version is
+        included alongside its current PUBLISHED one (defaults to published-only).
+    :param maxSchemaVersion: Highest Device Config `schemaVersion` the caller can parse. Omitted
+        (or 1) means the server down-projects every entry to the frozen v1 shape and drops
+        `type: mqtt` entries entirely; pass 2 to receive canonical schema-v2 documents unchanged
+        (`variables`/`mqtt` blocks intact).
+    """
+    since: Optional[int] = None
+    accountKeys: list[str] = field(default_factory=list)
+    includeDevelopment: bool = False
+    maxSchemaVersion: Optional[int] = None
+
+@dataclass
+class DeviceConfigSyncEntryModel:
+    name: str
+    version: str
+    semanticVersion: str
+    yaml: str
+    updatedAt: str
+    status: Optional[str] = None
+    deprecated: Optional[bool] = None
+    deprecatedAt: Optional[str] = None
+
+@dataclass
+class DeviceConfigSyncDeletionModel:
+    """ A tombstone for an account-scoped Device Config name removed since `since`.
+
+    :param action: "deleted" or "discarded".
+    """
+    name: str
+    action: str
+    deletedAt: str
+
+@dataclass
+class DeviceConfigSyncAccountModel:
+    accountKey: str
+    published: list[DeviceConfigSyncEntryModel]
+    development: list[DeviceConfigSyncEntryModel]
+    deleted: list[DeviceConfigSyncDeletionModel]
+
+@dataclass
+class DeviceConfigSyncResultModel:
+    """
+    :param global_: Active (non-deprecated, non-disabled) global entries changed since `since`.
+    :param globalDeprecated: Names of global entries newly deprecated since `since` - tombstones
+        for a caching client.
+    :param accounts: Per requested account, its changed published/development entries and
+        deletion tombstones.
+    """
+    global_: list[DeviceConfigSyncEntryModel] = field(metadata={"data_key": "global"}, default_factory=list)
+    globalDeprecated: list[str] = field(default_factory=list)
+    accounts: list[DeviceConfigSyncAccountModel] = field(default_factory=list)
+
+@dataclass
+class MqttDeploymentRegistrationModel:
+    """ Body for `register_mqtt_deployment`. A deployment is the instance of a published
+    `type: mqtt` device-config: registering one creates the backing Site activity from the
+    config's `variables:` block and mints a scoped publish-only API key (returned once).
+
+    :param deviceConfigName: Name of a *published* `type: mqtt` device-config for the account.
+    :param name: Display name for the deployment (and the backing Site activity).
+    :param latitude: Deployment location latitude. Defaults to 0.0 server-side.
+    :param longitude: Deployment location longitude. Defaults to 0.0 server-side.
+    :param altitude: Deployment location altitude. Defaults to 0.0 server-side.
+    :param keyName: Label for the scoped publish key. Defaults to `name`.
+    :param keyExpiryOn: Optional `yyyy-MM-dd` expiry date for the publish key.
+    """
+    deviceConfigName: str
+    name: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    altitude: Optional[float] = None
+    keyName: Optional[str] = None
+    keyExpiryOn: Optional[str] = None
+
+@dataclass
+class MqttDeploymentUpdateModel:
+    """ Body for `update_mqtt_deployment`. Partial object - currently only `name` is mutable; the
+    backing Site activity is not renamed. """
+    name: str
 
 @dataclass
 class UserAccountSummaryModel:
@@ -648,7 +786,7 @@ class DSVariableModel:
     kind: DataKind
     profile: str
     dimLengths: dict[str, int]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     recordDim: Optional[str] = None
     stdDataType: Optional[str] = None
 
@@ -725,7 +863,7 @@ class DataStreamCreatorModel:
     acqConv: str
     coordConv: str
     timezone: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     created: int
     appKey: Optional[str] = None
 
@@ -746,7 +884,7 @@ class DataStreamModel:
     acqConv: str
     coordConv: str
     timezone: str
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     dataChannels: dict[str, DataChannelModel]
     created: int
     appKey: Optional[str] = None
@@ -827,6 +965,7 @@ class DataStreamDetailsModel:
         else:
             return None
 
+@dataclass
 class DataStreamBlobMetadataModel:
     dataStreamKey: str
     dataKey: str
@@ -862,7 +1001,7 @@ class DataStreamRecordsBlobMetadataModel(DataStreamBlobMetadataModel):
 @dataclass
 class DataStreamBlobSummaryModel(DataStreamBlobMetadataModel):
     dsSummary: DataStreamSummaryModel
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     profiles: dict[str, list[DataStreamBlobMetadataModel]]
 
 @dataclass
@@ -889,6 +1028,74 @@ class DataStreamFilterModel:
             return None
 
 @dataclass
+class EventLocationModel:
+    """ The captured location (and time) of an Event - a single point in space/time. """
+    latitude: float
+    longitude: float
+    timeUtc: int
+    altitude: Optional[float] = None
+
+    def time_utc_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.timeUtc / 1000.0)
+
+@dataclass
+class EventThumbnailModel:
+    """ An Event's thumbnail/icon - embedded directly alongside its captured location.
+
+    :param kind: "icon" (a FontAwesome-style icon mnemonic), "svg" (inline SVG markup), or
+        "image" (a base64-encoded raster image).
+    :param data: The icon class name, raw SVG markup, or base64-encoded image bytes.
+    :param mimeType: Only meaningful for kind = "image" (e.g. "image/png").
+    """
+    kind: str
+    data: str
+    width: Optional[int] = None
+    height: Optional[int] = None
+    mimeType: Optional[str] = None
+
+@dataclass
+class EventCreatorModel:
+    """ :param dataStream: coordConv is forced to EVENT server-side regardless of what's supplied. """
+    dataStream: DataStreamCreatorModel
+    location: EventLocationModel
+    thumbnail: Optional[EventThumbnailModel] = None
+
+@dataclass
+class EventUpdateModel:
+    dataStream: DataStreamCreatorModel
+    location: Optional[EventLocationModel] = None
+    thumbnail: Optional[EventThumbnailModel] = None
+
+@dataclass
+class EventDetailsModel:
+    dataStream: DataStreamDetailsModel
+    location: Optional[EventLocationModel] = None
+    thumbnail: Optional[EventThumbnailModel] = None
+
+@dataclass
+class EventNearbyFilterModel:
+    """ :param accounts: The account keys to search (never unconstrained - empty returns no results). """
+    accounts: list[str]
+    minTime: int
+    maxTime: int
+    minLatitude: float
+    maxLatitude: float
+    minLongitude: float
+    maxLongitude: float
+
+    def min_time_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.minTime / 1000.0)
+
+    def max_time_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.maxTime / 1000.0)
+
+@dataclass
+class EventLocationSummaryModel:
+    """ A single result of a "find nearby" event search. """
+    key: str
+    location: EventLocationModel
+
+@dataclass
 class SDTValidRangeModel:
     lower: float
     upper: float
@@ -908,7 +1115,7 @@ class StandardDataTypeModel:
     kind: str
     units: str
     profiles: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     description: Optional[str]
     variantType: Optional[StandardDataVariantTypeModel]
     modulo: Optional[bool]
@@ -916,28 +1123,38 @@ class StandardDataTypeModel:
     synonyms: Optional[list[str]]
     deprecated: bool
 
-@dataclass
-class FolioSetModel:
-    label: str
-    description: str
-    accountKey: str
-    owner: str
-    created: int
-    appKey: Optional[str] = None
-
-    def created_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.created / 1000.0)
+class StructuredTextFormat:
+    JSON = 'JSON'
+    XML = 'XML'
+    YAML = 'YAML'
 
 @dataclass
-class FolioSetDetailsModel:
-    key: str
-    label: str
+class FolioItemModel:
+    """ A single entry in a Folio's (or section's) list. `kind` selects which of the other
+    fields apply: 'activity' (activityKey), 'dataStream' (dataStreamKey), 'folio' (folioKey,
+    a reference to another Folio), or 'text' (format/content, inline structured text - the only
+    kind with no `owned` flag, since it isn't a reference to another owned entity). """
+    kind: str
+    name: str
+    itemType: Optional[str] = None
+    activityKey: Optional[str] = None
+    dataStreamKey: Optional[str] = None
+    folioKey: Optional[str] = None
+    owned: Optional[bool] = None
+    format: Optional[str] = None
+    content: Optional[str] = None
+    attrs: dict[str, AttrKindValueModel] = field(default_factory=dict)
+
+@dataclass
+class FolioSectionModel:
+    """ A named section within a Folio's tree; self-similar, so sections nest arbitrarily deep. """
+    name: str
     description: str
-    accountKey: str
-    owner: str
     created: int
     lastUpdated: int
-    appKey: Optional[str] = None
+    attrs: dict[str, AttrKindValueModel]
+    items: list[FolioItemModel]
+    sections: list['FolioSectionModel']
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
@@ -946,54 +1163,265 @@ class FolioSetDetailsModel:
         return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
-class FolioStreamModel:
+class FolioRootModel:
+    """ The top of a Folio's content tree - like a FolioSectionModel, but with no name of its own. """
+    attrs: dict[str, AttrKindValueModel]
+    items: list[FolioItemModel]
+    sections: list[FolioSectionModel]
+
+@dataclass
+class FolioTemplateSlotModel:
+    """ One rule within a FolioTemplateModel - see the server's docs/Folio-Template.md for the full schema.
+
+    :param kind: "section" or "item".
+    :param itemKind: For an item slot: one of "activity"/"dataStream"/"folio"/"text".
+    """
+    kind: str
+    name: Optional[str] = None
+    pattern: Optional[str] = None
+    itemKind: Optional[str] = None
+    itemType: Optional[str] = None
+    wildcard: bool = False
+    min: int = 0
+    max: Optional[int] = None
+    rules: list['FolioTemplateSlotModel'] = field(default_factory=list)
+
+@dataclass
+class FolioTemplateModel:
+    """ A named, versioned set of rules describing what's permitted to be added to a Folio.
+    Read-only here (submitted as raw YAML text on FolioModel.templateYaml, not this structured
+    form) - this is how it comes back on a FolioDetailsModel. """
     name: str
-    classifer: str
-    dataStreamKey: str
-    isAssociation: bool
-    isActive: bool
+    version: int
+    description: str
+    rules: list[FolioTemplateSlotModel]
 
 @dataclass
 class FolioModel:
-    label: str
+    """ Request body to create or update a folio's own metadata. `templateYaml`, if supplied, is
+    only honoured on creation - a folio's template is fixed for its lifetime. """
+    name: str
     description: str
+    accountKey: str
+    owner: str
     created: int
-    attrs: dict[str, AttributeModel]
-    streams: dict[str, FolioStreamModel]
+    root: FolioRootModel
+    folioType: Optional[str] = None
+    templateYaml: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
-
-@dataclass
-class FolioSummaryModel:
-    key: str
-    label: str
-    description: str
-    created: int
-    lastUpdated: int
-
-    def created_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.created / 1000.0)
-
-    def last_updated_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
 class FolioDetailsModel:
     key: str
-    fsKey: str
-    label: str
+    name: str
     description: str
+    accountKey: str
+    owner: str
+    version: int
     created: int
-    attrs: dict[str, AttributeModel]
-    streams: dict[str, FolioStreamModel]
+    root: FolioRootModel
     lastUpdated: int
+    folioType: Optional[str] = None
+    template: Optional[FolioTemplateModel] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
 
     def last_updated_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class FolioSummaryModel:
+    key: str
+    name: str
+    description: str
+    accountKey: str
+    version: int
+    created: int
+    lastUpdated: int
+    folioType: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class FolioSectionCreateModel:
+    name: str
+    description: str
+    attrs: dict[str, AttrKindValueModel] = field(default_factory=dict)
+
+@dataclass
+class FolioSectionUpdateModel:
+    """ Only the fields supplied change; omitted fields are left as-is. """
+    name: Optional[str] = None
+    description: Optional[str] = None
+    attrs: Optional[dict[str, AttrKindValueModel]] = None
+
+@dataclass
+class FolioValidationIssueModel:
+    """ :param path: "/"-separated, matching the `path` query parameter used elsewhere in this API.
+    :param kind: "missingMandatory", "tooMany", or "unrecognized". """
+    path: str
+    kind: str
+    message: str
+
+@dataclass
+class FolioValidationReportModel:
+    valid: bool
+    issues: list[FolioValidationIssueModel]
+
+@dataclass
+class FolioLockModel:
+    """ Body for `set_folio_locked` - toggles whether a folio is locked against further
+    Contributor edits, independent of how it was created. """
+    locked: bool
+
+@dataclass
+class ShapeVariableModel:
+    name: str
+    value: Optional[str] = None
+    computed: bool = False
+
+@dataclass
+class ShapeModel:
+    """ Request body to create a Shape. """
+    name: str
+    accountKey: str
+    geojson: str
+    classification: Optional[str] = None
+    variables: list[ShapeVariableModel] = field(default_factory=list)
+
+@dataclass
+class ShapeDetailsModel:
+    key: str
+    name: str
+    accountKey: str
+    geojson: str
+    category: str
+    created: int
+    lastUpdated: int
+    classification: Optional[str] = None
+    variables: list[ShapeVariableModel] = field(default_factory=list)
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    layerName: Optional[str] = None
+    layerLower: Optional[float] = None
+    layerUpper: Optional[float] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class ShapeSummaryModel:
+    key: str
+    accountKey: str
+    name: str
+    category: str
+    created: int
+    lastUpdated: int
+    classification: Optional[str] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class ShapeUpdateModel:
+    """ Request body to update a Shape's metadata (name/classification/collection-level
+    variables/comment/tags/colour-ramp/nature) only - use ShapeGeometryModel to update its
+    `geojson` instead. `clearLayer` is a separate, explicit "drop the colour-ramp attrs" signal,
+    since layerName/layerLower/layerUpper already use "omitted = leave untouched" semantics. """
+    name: str
+    classification: Optional[str] = None
+    variables: list[ShapeVariableModel] = field(default_factory=list)
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    layerName: Optional[str] = None
+    layerLower: Optional[float] = None
+    layerUpper: Optional[float] = None
+    category: Optional[str] = None
+    clearLayer: bool = False
+
+@dataclass
+class ShapeGeometryModel:
+    geojson: str
+
+@dataclass
+class ExternalAuditRecordModel:
+    """ A single record in a batch write to the external audit log (max 100 per batch, see
+    ExternalAuditBatchModel). `application` must be in the server's configured allow-list, or
+    "platform" (the default). """
+    reason: str
+    description: str
+    seqKey: Optional[str] = None
+    application: Optional[str] = None
+    timestamp: Optional[int] = None
+
+    def timestamp_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.timestamp / 1000.0) if self.timestamp is not None else None
+
+@dataclass
+class ExternalAuditBatchModel:
+    """ Request body to write a batch of external audit records. """
+    records: list[ExternalAuditRecordModel]
+    account: Optional[str] = None
+
+@dataclass
+class ModelSummaryModel:
+    key: str
+    name: str
+    version: str
+    global_: bool = field(metadata=dict(data_key="global"))
+    description: str = ''
+    deprecated: bool = False
+    deprecatedDate: Optional[int] = None
+
+    def deprecated_date_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.deprecatedDate / 1000.0) if self.deprecatedDate is not None else None
+
+@dataclass
+class ModelNodeModel:
+    """ A node in a model's tree, self-recursive via `children`. `attrs` is a polymorphic map
+    (string/int/boolean/... attribute values) with no fixed schema on the server, so it's
+    returned as a raw dict rather than a typed model. """
+    key: str
+    name: str
+    deprecated: bool
+    description: Optional[str] = None
+    attrs: dict[str, Any] = field(default_factory=dict)
+    children: list["ModelNodeModel"] = field(default_factory=list)
+
+@dataclass
+class ModelTreeModel:
+    model: ModelSummaryModel
+    roots: list[ModelNodeModel] = field(default_factory=list)
+
+@dataclass
+class StreamTagModel:
+    dataStreamKey: str
+    modelKey: str
+    accountKey: str
+    taggedBy: str
+    taggedAt: int
+    path: list[str] = field(default_factory=list)
+
+    def tagged_at_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.taggedAt / 1000.0)
+
+@dataclass
+class StreamTagRequestModel:
+    modelKey: str
+    path: list[str] = field(default_factory=list)
 
 @dataclass
 class SensorModel:
@@ -1089,6 +1517,67 @@ class ActivitySearchFilterModel:
             self.coordConvs = []
 
 @dataclass
+class ActivityAnalyticsRequestModel:
+    """
+    :param accounts: The accounts to include. Empty means "all accounts accessible to the caller".
+    :param filter: The same name/category/date-range/convention filter used for activity search.
+    :param groupBy: The dimensions to group counts by. Empty means a single overall count.
+    :param bucket: The time-bucket granularity, required when `groupBy` includes "bucket".
+    """
+    accounts: list[str] = field(default_factory=list)
+    filter: ActivitySearchFilterModel = field(default_factory=ActivitySearchFilterModel)
+    groupBy: list[str] = field(default_factory=list)
+    bucket: str = "none"
+
+@dataclass
+class ActivityAnalyticsGroupModel:
+    """ A single grouped count, keyed by the dimension values that produced it (e.g. `activityType` -> `hiking`). """
+    dims: dict[str, str]
+    count: int
+
+@dataclass
+class ActivityAnalyticsResultModel:
+    totalCount: int
+    groups: list[ActivityAnalyticsGroupModel]
+
+@dataclass
+class ActivityTrackMetricsGroupModel:
+    """ A single grouped set of aggregate track metrics, keyed by the dimension values that
+    produced it. Distances/ascent/descent are metres, duration is seconds, avgSpeed is metres/second. """
+    dims: dict[str, str]
+    count: int
+    totalDistance: float
+    totalAscent: float
+    totalDescent: float
+    totalDurationSeconds: int
+    avgSpeed: float
+
+@dataclass
+class ActivityTrackMetricsResultModel:
+    """ The result of a grouped track-metrics aggregation query. Uses the same request shape as
+    ActivityAnalyticsRequestModel. """
+    totalCount: int
+    groups: list[ActivityTrackMetricsGroupModel]
+
+@dataclass
+class ActivityVariableStatsGroupModel:
+    """ Aggregate statistics for a single standard data type within a dimension group, keyed by
+    the dimension values plus the standard data type. """
+    dims: dict[str, str]
+    standardDataType: str
+    name: str
+    units: str
+    count: int
+    statistics: VariableStatisticsModel
+
+@dataclass
+class ActivityVariableStatsResultModel:
+    """ The result of a grouped, per-standard-data-type variable statistics aggregation query.
+    Uses the same request shape as ActivityAnalyticsRequestModel. """
+    totalCount: int
+    groups: list[ActivityVariableStatsGroupModel]
+
+@dataclass
 class ActivityLocationModel:
     latitude: float
     longitude: float
@@ -1112,12 +1601,17 @@ class ActivityDetailsModel:
     interval: Optional[Interval] = None
     shareInfo: Optional[list[ActivityShareInfoModel]] = None
 
+@dataclass
 class ActivityBlockStatisticsModel:
+    """Matches encodeTrackBlockStatistics/encodeSiteBlockStatistics on the API side:
+    "duration" is always present, and the geo extent (if any) is spread as four flat
+    optional keys (minLat/maxLat/minLon/maxLon) rather than a nested "geoExtent"
+    object."""
     nRecords: int
     startTime: int
     finishTime: int
+    duration: int
     statistics: dict[str, VariableStatisticsModel]
-    geoExtent: Optional[GeoExtentModel]
 
     def start_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.startTime / 1000.0)
@@ -1132,11 +1626,6 @@ class DataFilterModel:
     params: dict[str, str]
 
 @dataclass
-class ValidRangeModel:
-    lower: float
-    upper: float
-
-@dataclass
 class ActivityVariableMetadataModel:
     shortName: str
     longName: str
@@ -1145,7 +1634,7 @@ class ActivityVariableMetadataModel:
     displayUnits: str
     displayUnitsUnicode: Optional[str]
     profiles: list[str]
-    attrs: dict[str, AttributeModel]
+    attrs: dict[str, AttrKindValueModel]
     sdtKey: Optional[str]
     validRange: Optional[ValidRangeModel]
     filters: Optional[list[DataFilterModel]]
@@ -1205,8 +1694,9 @@ class SiteRecordsMapModel(dict[str, list[Optional[float]]]):
     def time_utc_datetime(self) -> list[datetime]:
         return [datetime.fromtimestamp(t / 1000.0) for t in self.timeUtc]
 
+@dataclass
 class ActivityRecordsModel:
-    records: dict[str, list[Optional[SensorValueModel]]]
+    records: dict[str, list[Optional[Any]]]
     metadata: dict[str, ActivityVariableMetadataModel]
 
 @dataclass
@@ -1216,6 +1706,62 @@ class ActivityShareRulesModel:
 @dataclass
 class ActivityUpdateResponseModel:
     key: str
+
+@dataclass
+class ActivityBatchResultModel:
+    seqKey: str
+    status: int
+    key: Optional[str] = None
+    message: Optional[str] = None
+    hint: Optional[str] = None
+
+@dataclass
+class TrackCreateActivityBatchModel:
+    activity: ActivityModel
+    recordInterval: int
+    seqKey: Optional[str] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
+
+@dataclass
+class TrackUpdateActivityBatchModel:
+    key: str
+    seqKey: Optional[str] = None
+    activity: Optional[ActivityModel] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
+
+@dataclass
+class TrackActivityBatchCommandsModel:
+    create: list[TrackCreateActivityBatchModel] = field(default_factory=list)
+    update: list[TrackUpdateActivityBatchModel] = field(default_factory=list)
+
+@dataclass
+class SiteCreateActivityBatchModel:
+    activity: ActivityModel
+    location: ActivityLocationModel
+    recordInterval: int
+    seqKey: Optional[str] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
+
+@dataclass
+class SiteUpdateActivityBatchModel:
+    key: str
+    seqKey: Optional[str] = None
+    activity: Optional[ActivityModel] = None
+    location: Optional[ActivityLocationModel] = None
+    records: Optional[dict[str, list[Optional[Any]]]] = None
+
+@dataclass
+class SiteActivityBatchCommandsModel:
+    create: list[SiteCreateActivityBatchModel] = field(default_factory=list)
+    update: list[SiteUpdateActivityBatchModel] = field(default_factory=list)
+
+@dataclass
+class ActivityBatchCommandsModel:
+    """ Request body for a batch record update: one or more track and/or site create/update
+    commands, each independently sequenced by an optional client-supplied `seqKey` so results can
+    be matched back to the command that produced them. """
+    tracks: Optional[TrackActivityBatchCommandsModel] = None
+    sites: Optional[SiteActivityBatchCommandsModel] = None
 
 @dataclass
 class ActivitiesItemModel:
@@ -1265,12 +1811,16 @@ class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
     startTime: int
     finishTime: int
+    duration: int
     statistics: dict[str, VariableStatisticsModel]
-    geoExtent: Optional[GeoExtentModel]
     distance: float
     ascent: float
     descent: float
     displacement: float
+    minLat: Optional[float] = None
+    maxLat: Optional[float] = None
+    minLon: Optional[float] = None
+    maxLon: Optional[float] = None
 
     def start_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.startTime / 1000.0)
@@ -1308,7 +1858,7 @@ class ActivityTrackStatisticsModel:
 
 @dataclass
 class TrackRecordsModel(ActivityRecordsModel):
-    records: dict[str, list[Optional[SensorValueModel]]]
+    records: dict[str, list[Optional[Any]]]
     metadata: dict[str, ActivityVariableMetadataModel]
     markers: Optional[list[ActivityTrackMarkerModel]]
     statistics: Optional[ActivityTrackStatisticsModel]
@@ -1327,8 +1877,12 @@ class ActivitySiteBlockStatisticsModel(ActivityBlockStatisticsModel):
     nRecords: int
     startTime: int
     finishTime: int
+    duration: int
     statistics: dict[str, VariableStatisticsModel]
-    geoExtent: Optional[GeoExtentModel]
+    minLat: Optional[float] = None
+    maxLat: Optional[float] = None
+    minLon: Optional[float] = None
+    maxLon: Optional[float] = None
 
     def start_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.startTime / 1000.0)
@@ -1370,8 +1924,9 @@ class UpdateSiteActivityModel:
 
 @dataclass
 class SiteRecordsModel(ActivityRecordsModel):
-    records: dict[str, list[Optional[SensorValueModel]]]
+    records: dict[str, list[Optional[Any]]]
     metadata: dict[str, ActivityVariableMetadataModel]
+    location: ActivityLocationModel
     statistics: Optional[ActivitySiteStatisticsModel]
 
 @dataclass
@@ -1383,72 +1938,6 @@ class SiteActivityModel:
     shareInfo: Optional[list[ActivityShareInfoModel]]
     interval: Optional[ActivityIntervalModel]
     records: Optional[SiteRecordsModel]
-
-@dataclass
-class TrackCreateActivityBatchModel:
-    seqKey: Optional[str]
-    activity: ActivityModel
-    recordInterval: int
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class TrackUpdateActivityBatchModel:
-    seqKey: Optional[str]
-    key: str
-    activity: Optional[ActivityModel]
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class SiteCreateActivityBatchModel:
-    seqKey: Optional[str]
-    activity: ActivityModel
-    location: ActivityLocationModel
-    recordInterval: int
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class SiteUpdateActivityBatchModel:
-    seqKey: Optional[str]
-    key: str
-    activity: Optional[ActivityModel]
-    location: Optional[ActivityLocationModel]
-    records: Optional[dict[str, list[Optional[SensorValueModel]]]]
-
-@dataclass
-class TrackActivityBatchCommandsModel:
-    create: list[TrackCreateActivityBatchModel]
-    update: list[TrackUpdateActivityBatchModel]
-
-@dataclass
-class SiteActivityBatchCommandsModel:
-    create: list[SiteCreateActivityBatchModel]
-    update: list[SiteUpdateActivityBatchModel]
-
-@dataclass
-class ActivityBatchCommandsModel:
-    tracks: Optional[TrackActivityBatchCommandsModel]
-    sites: Optional[SiteActivityBatchCommandsModel]
-
-@dataclass
-class ActivityBatchResultModel:
-    seqKey: str
-    status: int
-    key: Optional[str] = None
-    message: Optional[str] = None
-    hint: Optional[str] = None
-
-@dataclass
-class ActivityTypeModel:
-    key: str
-    name: str
-    highestAccuracy: str
-    nominalSpeed: str
-    navigationNature: str
-    icon: str
-    colour: Optional[str]
-    profile: str
-    allowedAdapters: list[str]
-    deprecated: bool = False
 
 @dataclass
 class UploadMetadataModel:
@@ -1471,11 +1960,6 @@ class UploadMetadataChangeCommandModel:
     mimeType: str
     nature: str
     attributes: dict[str, AttributeValueModel]
-
-@dataclass
-class MasterDataModel:
-    profileTypes: list[AccountProfileTypeModel]
-    activityTypes: list[ActivityTypeModel]
 
 @dataclass
 class AuthenticationRequestModel:
@@ -1603,6 +2087,386 @@ class InMotionAPIV1Model(InMotionAPIModel):
     dsBlob: Optional[DSBlobAPIPathModel] = None
     dsBlobs: Optional[dict[str, str]] = None
 
+## ACTIVITY CONFIGURATION MANAGEMENT
+
+@dataclass
+class QCTransformerAlgorithmModel:
+    name: str
+    inputs: list[str]
+    outputs: list[str]
+    parameters: Optional[dict[str, str]] = None
+
+@dataclass
+class QCTransformerModel:
+    label: str
+    algorithm: QCTransformerAlgorithmModel
+    comment: Optional[str] = None
+
+@dataclass
+class QCRegionModel:
+    """ action: 'none' | 'remove' | 'replace' | 'interpolate'; flag e.g. 'bad', 'suspect';
+    method (interpolation algorithm, only for 'interpolate'): 'linear' | 'spline' | 'cubic'. """
+    action: str
+    flag: str
+    from_: str = field(metadata=dict(data_key="from"))
+    to: str
+    variable: Optional[str] = None
+    label: Optional[str] = None
+    comment: Optional[str] = None
+    method: Optional[str] = None
+    value: Optional[Any] = None
+
+@dataclass
+class QCConfigModel:
+    regions: Optional[list[QCRegionModel]] = None
+    transformers: Optional[dict[str, list[QCTransformerModel]]] = None
+
+@dataclass
+class PrConfigDerivedChannelModel:
+    name: str
+    interval: str
+    measures: list[str]
+    recordIntervalAtLeast: str
+    activityDurationAtLeast: str
+
+@dataclass
+class HistoryEntryModel:
+    when: int
+    who: str
+    comment: Optional[str] = None
+
+    def when_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.when / 1000.0)
+
+@dataclass
+class CustomDataEntryModel:
+    when: int
+    who: str
+    label: str
+    data: str
+
+    def when_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.when / 1000.0)
+
+@dataclass
+class ActivityConfigModel:
+    key: str
+    qualityControl: QCConfigModel
+    processing: Optional[dict[str, list[PrConfigDerivedChannelModel]]] = None
+    history: Optional[list[HistoryEntryModel]] = None
+    customData: Optional[list[CustomDataEntryModel]] = None
+
+@dataclass
+class ActivityConfigDeleteResponseModel:
+    key: str
+    section: str
+    deleted: bool
+
+@dataclass
+class ActivityConfigQCUpdateModel:
+    qualityControl: QCConfigModel
+
+@dataclass
+class ActivityConfigProcessingUpdateModel:
+    processing: Optional[dict[str, list[PrConfigDerivedChannelModel]]] = None
+
+@dataclass
+class ActivityConfigCustomDataUpdateModel:
+    entries: Optional[list[CustomDataEntryModel]] = None
+
+@dataclass
+class ActivityConfigBadPeriodModel:
+    """ from/to are ISO-8601 timestamps; reason is a detector/workflow reason code;
+    score is a detector confidence score in the range [0, 1]. """
+    from_: str = field(metadata=dict(data_key="from"))
+    to: str
+    reason: Optional[str] = None
+    score: Optional[float] = None
+
+@dataclass
+class ActivityConfigBadPeriodDetectRequestModel:
+    from_: Optional[str] = field(default=None, metadata=dict(data_key="from"))
+    to: Optional[str] = None
+
+@dataclass
+class ActivityConfigBadPeriodDetectResultModel:
+    key: str
+    periods: list[ActivityConfigBadPeriodModel]
+
+@dataclass
+class ActivityConfigBadPeriodMergeRequestModel:
+    periods: list[ActivityConfigBadPeriodModel]
+    detectorVersion: str
+    dryRun: bool
+
+@dataclass
+class ActivityConfigBadPeriodMergeResultModel:
+    key: str
+    dryRun: bool
+    mergedCount: int
+    yaml: Optional[str] = None
+
+@dataclass
+class ActivityConfigQCRegionGenerateRequestModel:
+    from_: Optional[str] = field(default=None, metadata=dict(data_key="from"))
+    to: Optional[str] = None
+
+@dataclass
+class ActivityConfigQCRegionGenerateResultModel:
+    key: str
+    regions: list[QCRegionModel]
+
 @dataclass
 class AdminArchiveLocationModel:
     location: str
+
+@dataclass
+class ValueValidationModel:
+    pattern: Optional[str] = None
+    min: Optional[float] = None
+    max: Optional[float] = None
+    precision: Optional[int] = None
+
+@dataclass
+class ModelFieldValueModel:
+    """ One field on a tagged classification node, its schema, and (if set) its current value for
+    this data stream. """
+    fieldName: str
+    valueType: str
+    required: bool
+    multiple: bool
+    enumValues: list[str] = field(default_factory=list)
+    unit: Optional[str] = None
+    validation: Optional[ValueValidationModel] = None
+    value: Optional[AttributeModel] = None
+
+@dataclass
+class ModelFieldGroupModel:
+    """ All fields for one active classification tag on a data stream - path/nodeName identify
+    which tag this is, so a stream tagged more than once renders one of these per tag. """
+    modelKey: str
+    path: list[str]
+    nodeName: str
+    breadcrumb: str
+    fields: list[ModelFieldValueModel] = field(default_factory=list)
+
+@dataclass
+class SetModelFieldValueRequestModel:
+    """ Request body to set (or, if `value` is omitted/blank on an optional field, clear) one
+    field's value for one active tag. """
+    modelKey: str
+    path: list[str]
+    fieldName: str
+    value: Optional[str] = None
+
+@dataclass
+class RasterOverlayBoundsModel:
+    """ The raster's full extent in WGS84 lon/lat, straight off the file's own georeferencing. """
+    minLon: float
+    minLat: float
+    maxLon: float
+    maxLat: float
+    epsgCode: str
+
+@dataclass
+class RasterOverlaySummaryModel:
+    key: str
+    accountKey: str
+    name: str
+    wmsLayer: str
+    created: int
+    lastUpdated: int
+    tags: list[str] = field(default_factory=list)
+    rampName: Optional[str] = None
+    valueLower: Optional[float] = None
+    valueUpper: Optional[float] = None
+    invert: Optional[bool] = None
+    alpha: Optional[float] = None
+    transparentOutOfRange: Optional[bool] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class RasterOverlayDetailsModel:
+    key: str
+    accountKey: str
+    name: str
+    wmsLayer: str
+    mapToken: str
+    created: int
+    lastUpdated: int
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    rampName: Optional[str] = None
+    valueLower: Optional[float] = None
+    valueUpper: Optional[float] = None
+    invert: Optional[bool] = None
+    alpha: Optional[float] = None
+    transparentOutOfRange: Optional[bool] = None
+    bbox: Optional[RasterOverlayBoundsModel] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+@dataclass
+class RasterOverlayStyleUpdateModel:
+    """ Request body to update a RasterOverlay's editable metadata - style plus name/comment/tags
+    (creation is import-tool-only). Omitted fields are left untouched. """
+    name: Optional[str] = None
+    comment: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    rampName: Optional[str] = None
+    valueLower: Optional[float] = None
+    valueUpper: Optional[float] = None
+    invert: Optional[bool] = None
+    alpha: Optional[float] = None
+    transparentOutOfRange: Optional[bool] = None
+
+@dataclass
+class ShapeGeneratorModel:
+    """ Request body to create a Shape Generator. """
+    name: str
+    accountKey: str
+    generatorType: str
+    params: Any
+    clipBoundaryShapeKey: Optional[str] = None
+    labelTemplate: Optional[str] = None
+
+@dataclass
+class ShapeGeneratorDetailsModel:
+    key: str
+    name: str
+    accountKey: str
+    generatorType: str
+    params: Any
+    labelTemplate: str
+    created: int
+    lastUpdated: int
+    clipBoundaryShapeKey: Optional[str] = None
+    generatedGeojson: Optional[str] = None
+    generatedAt: Optional[int] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def generated_at_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.generatedAt / 1000.0) if self.generatedAt is not None else None
+
+@dataclass
+class ShapeGeneratorSummaryModel:
+    key: str
+    accountKey: str
+    name: str
+    generatorType: str
+    created: int
+    lastUpdated: int
+    generatedAt: Optional[int] = None
+
+    def created_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.created / 1000.0)
+
+    def last_updated_datetime(self) -> datetime:
+        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
+
+    def generated_at_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.generatedAt / 1000.0) if self.generatedAt is not None else None
+
+@dataclass
+class ShapeGeneratorUpdateModel:
+    """ Full-replace update of a generator's rules - does not itself touch `generatedGeojson`. """
+    name: str
+    params: Any
+    labelTemplate: str
+    clipBoundaryShapeKey: Optional[str] = None
+
+@dataclass
+class NearbyTracksFilterModel:
+    """ Query bounding box for `find_nearby_tracks` - candidate Track input for idw/nn shape
+    generators. Typically the target Shape's own extent, widened client-side. """
+    minLatitude: float
+    maxLatitude: float
+    minLongitude: float
+    maxLongitude: float
+
+@dataclass
+class NearbyTrackModel:
+    """ One Track candidate returned by `find_nearby_tracks` - its key/name plus its own
+    geographic extent. """
+    key: str
+    name: str
+    minLatitude: float
+    maxLatitude: float
+    minLongitude: float
+    maxLongitude: float
+
+@dataclass
+class MfaChallengeModel:
+    """ The response `/authenticate` returns in place of AuthenticationSessionModel when the
+    account has MFA enabled. `mfaToken` must be sent back as the `X-Auth-Token` header on
+    `/authenticate/mfa` or `/authenticate/mfa/resend`. """
+    mfaToken: str
+    mfaPending: bool
+    method: str
+    expiresInSeconds: int
+
+@dataclass
+class MfaVerifyRequestModel:
+    code: str
+    requiredApiVersion: Optional[str] = None
+    withMasterData: Optional[bool] = None
+
+@dataclass
+class MfaResendResultModel:
+    status: str
+    method: str
+
+@dataclass
+class MfaStatusModel:
+    enabled: bool
+    method: Optional[str] = None
+    enrolledAt: Optional[int] = None
+    available: Optional[bool] = None
+
+    def enrolled_at_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.enrolledAt / 1000.0) if self.enrolledAt is not None else None
+
+@dataclass
+class MfaEnrollRequestModel:
+    method: str
+    password: str
+
+@dataclass
+class MfaDisableRequestModel:
+    password: str
+
+@dataclass
+class TotpEnrollBeginRequestModel:
+    password: str
+
+@dataclass
+class TotpEnrollmentBeginResultModel:
+    secretKey: str
+    otpAuthUri: str
+    backupCodes: list[str] = field(default_factory=list)
+
+@dataclass
+class TotpConfirmRequestModel:
+    code: str
+
+@dataclass
+class TotpBackupCodesRegenerateRequestModel:
+    password: str
+
+@dataclass
+class MfaBackupCodesModel:
+    backupCodes: list[str] = field(default_factory=list)

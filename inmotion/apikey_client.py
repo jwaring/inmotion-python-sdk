@@ -1,12 +1,41 @@
-from types import SimpleNamespace
-from typing import cast
-
-import requests
-
+from inmotion.accounts import InMotionAccountsImpl
 from inmotion.activities import InMotionActivitiesImpl
-from inmotion import InMotionSession, InMotionActivities
-from inmotion.utils import *
-from inmotion.models import *
+from inmotion.activity_config import InMotionActivityConfigImpl
+from inmotion.apikey import InMotionApiKeysImpl
+from inmotion.audit import InMotionAuditImpl
+from inmotion.datastream import InMotionDataStreamImpl
+from inmotion.devkey import InMotionDevKeysImpl
+from inmotion.event import InMotionEventsImpl
+from inmotion.exceptions import InMotionAuthenticationError
+from inmotion.folio import InMotionFolioImpl
+from inmotion.model import InMotionModelImpl
+from inmotion.mqtt_deployment import InMotionMqttDeploymentImpl
+from inmotion.raster_overlay import InMotionRasterOverlayImpl
+from inmotion.shape import InMotionShapeImpl
+from inmotion.shapegenerator import InMotionShapeGeneratorImpl
+from inmotion import (
+    InMotionSession,
+    InMotionAccounts,
+    InMotionActivities,
+    InMotionActivityConfig,
+    InMotionApiKeys,
+    InMotionAudit,
+    InMotionDataStream,
+    InMotionDevKeys,
+    InMotionEvents,
+    InMotionFolio,
+    InMotionModel,
+    InMotionMqttDeployment,
+    InMotionRasterOverlay,
+    InMotionShape,
+    InMotionShapeGenerator,
+    InMotionUpload,
+    InMotionUser,
+)
+from inmotion.models import APICapabilitiesModel
+from inmotion.upload import InMotionUploadImpl
+from inmotion.user import InMotionUserImpl
+from inmotion.utils import build_im_headers, request_json, stringify
 
 INMOTION_API_VERSION = '2.0.0'
 
@@ -26,6 +55,51 @@ class InMotionAPIKeySession(InMotionSession):
 
     def activities(self) -> InMotionActivities:
         return InMotionActivitiesImpl(self)
+
+    def accounts(self) -> InMotionAccounts:
+        return InMotionAccountsImpl(self)
+
+    def events(self) -> InMotionEvents:
+        return InMotionEventsImpl(self)
+
+    def dev_keys(self) -> InMotionDevKeys:
+        return InMotionDevKeysImpl(self)
+
+    def api_keys(self) -> InMotionApiKeys:
+        return InMotionApiKeysImpl(self)
+
+    def user(self) -> InMotionUser:
+        return InMotionUserImpl(self)
+
+    def activity_config(self) -> InMotionActivityConfig:
+        return InMotionActivityConfigImpl(self)
+
+    def upload(self) -> InMotionUpload:
+        return InMotionUploadImpl(self)
+
+    def folio(self) -> InMotionFolio:
+        return InMotionFolioImpl(self)
+
+    def data_stream(self) -> InMotionDataStream:
+        return InMotionDataStreamImpl(self)
+
+    def shape(self) -> InMotionShape:
+        return InMotionShapeImpl(self)
+
+    def shape_generator(self) -> InMotionShapeGenerator:
+        return InMotionShapeGeneratorImpl(self)
+
+    def raster_overlay(self) -> InMotionRasterOverlay:
+        return InMotionRasterOverlayImpl(self)
+
+    def audit(self) -> InMotionAudit:
+        return InMotionAuditImpl(self)
+
+    def model(self) -> InMotionModel:
+        return InMotionModelImpl(self)
+
+    def mqtt_deployment(self) -> InMotionMqttDeployment:
+        return InMotionMqttDeploymentImpl(self)
 
     def build_headers(self, content: str) -> dict[str, str]:
         return build_im_headers(dev_key=self._dev_key,
@@ -59,52 +133,43 @@ class InMotionAPIKeyClient(object):
         self._api_version = kwargs.pop('api_version', INMOTION_API_VERSION)
 
     def get_session(self, account: str) -> InMotionAPIKeySession:
-        
+
         """
          Validate connectivity and extract tha API path by using the capabilities endpoint.
         """
-        capabilitiesRequired = stringify({
+        capabilities_request = stringify({
             'requiredApiVersion': self._api_version,
             'withMasterData': True
         })
-        try:
-            r = requests.post(self._base_url + "/api/latest/authenticate/capabilities",
-                            headers=build_im_headers(
-                                dev_key=self._dev_key,
-                                dev_secret=self._dev_secret,
-                                content=capabilitiesRequired,
-                                extra_name='X-API-KEY',
-                                extra_value=self._api_key,
-                            ),
-                            data=capabilitiesRequired)
-        except Exception as e:
-            raise Exception('Failed to connect to inMotion') from e
+        capabilities = request_json('POST', self._base_url + "/api/latest/authenticate/capabilities",
+                                     build_im_headers(
+                                         dev_key=self._dev_key,
+                                         dev_secret=self._dev_secret,
+                                         content=capabilities_request,
+                                         extra_name='X-API-KEY',
+                                         extra_value=self._api_key,
+                                     ),
+                                     capabilities_request,
+                                     f'Failed to authenticate to inMotion at {self._base_url}',
+                                     APICapabilitiesModel)
 
-        if r.status_code != 200:
-            raise Exception(f'Failed to authenticate to inMotion at {self._base_url} with code {r.status_code}')
-        
-        try:
-            capabilities = APICapabilitiesModel(**r.json())
-            match capabilities.status:
-                case 'active':
-                    return InMotionAPIKeySession(self._base_url,
-                                                 self._dev_key,
-                                                 self._dev_secret,
-                                                 self._api_key,
-                                                 account,
-                                                 capabilities.apiPath)
+        match capabilities.status:
+            case 'active':
+                return InMotionAPIKeySession(self._base_url,
+                                             self._dev_key,
+                                             self._dev_secret,
+                                             self._api_key,
+                                             account,
+                                             capabilities.apiPath)
 
-                case 'expiring':
-                    print(f'Warning: API version {capabilities.requestedVersion} is expiring on {capabilities.requestedVersionExpiryDate}. ')
-                    return InMotionAPIKeySession(self._base_url,
-                                                 self._dev_key,
-                                                 self._dev_secret,
-                                                 self._api_key,
-                                                 account,
-                                                 capabilities.apiPath)
+            case 'expiring':
+                print(f'Warning: API version {capabilities.requestedVersion} is expiring on {capabilities.requestedVersionExpiryDate}. ')
+                return InMotionAPIKeySession(self._base_url,
+                                             self._dev_key,
+                                             self._dev_secret,
+                                             self._api_key,
+                                             account,
+                                             capabilities.apiPath)
 
-                case _:
-                    raise Exception(f'API version {capabilities.requestedVersion} expired or unavailable')
-
-        except:
-            raise Exception('Malformed capabilities model received from inMotion')
+            case _:
+                raise InMotionAuthenticationError(f'API version {capabilities.requestedVersion} expired or unavailable')
