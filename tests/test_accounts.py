@@ -254,3 +254,77 @@ def test_withdraw_device_config_includes_version_path_segment():
         impl.withdraw_device_config("acct1", "my-config", 1)
 
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/acct1/device-configs/my-config/1/withdraw"
+
+
+def test_add_account_member_posts_to_members():
+    from inmotion.models import AddAccountMemberRequestModel
+
+    impl = InMotionAccountsImpl(_fake_session())
+
+    with patch("inmotion.accounts.request_json", return_value={"kind": "member"}) as mock_request_json:
+        impl.add_account_member("acct1", AddAccountMemberRequestModel(usernameOrEmail="a@x.com", privileges=_privileges(), consent=True))
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/acct1/members"
+    assert '"usernameOrEmail":"a@x.com"' in mock_request_json.call_args.args[3]
+
+
+def test_send_friend_invite_posts_to_invites():
+    from inmotion.models import FriendInviteRequestModel
+
+    impl = InMotionAccountsImpl(_fake_session())
+
+    with patch("inmotion.accounts.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.send_friend_invite("acct1", FriendInviteRequestModel(inviteeEmail="a@x.com", consent=True))
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/acct1/invites"
+
+
+def test_list_friend_invites_loads_a_list():
+    from inmotion.models import FriendInviteModel
+
+    impl = InMotionAccountsImpl(_fake_session())
+
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = [{"token": "t1", "inviteeEmail": "a@x.com", "expiration": 2, "lastUpdated": 1}]
+    with patch("inmotion.utils._http_session.request", return_value=mock_response) as mock_request:
+        result = impl.list_friend_invites("acct1")
+
+    assert mock_request.call_args.args[0] == "GET"
+    assert mock_request.call_args.args[1] == "http://example.test/api/v2/account/acct1/invites"
+    assert result == [FriendInviteModel(token="t1", inviteeEmail="a@x.com", expiration=2, lastUpdated=1)]
+
+
+def test_revoke_friend_invite_issues_a_delete_on_the_token():
+    impl = InMotionAccountsImpl(_fake_session())
+
+    with patch("inmotion.accounts.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.revoke_friend_invite("acct1", "tok1")
+
+    assert mock_request_json.call_args.args[0] == "DELETE"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/acct1/invites/tok1"
+
+
+def test_activity_type_crud_uses_the_activity_types_path():
+    impl = InMotionAccountsImpl(_fake_session())
+    base = "http://example.test/api/v2/account/acct1/activity-types"
+
+    with patch("inmotion.accounts.request_json", return_value={}) as mock_request_json:
+        impl.list_activity_types("acct1")
+        assert mock_request_json.call_args.args[:2] == ("GET", base)
+        impl.create_activity_type("acct1", "key: x")
+        assert mock_request_json.call_args.args[:2] == ("POST", base)
+        impl.update_activity_type("acct1", "x", "key: x")
+        assert mock_request_json.call_args.args[:2] == ("PUT", f"{base}/x")
+        impl.delete_activity_type("acct1", "x")
+        assert mock_request_json.call_args.args[:2] == ("DELETE", f"{base}/x")
+
+
+def test_find_account_activity_master_data_issues_a_get():
+    impl = InMotionAccountsImpl(_fake_session())
+
+    with patch("inmotion.accounts.request_json", return_value={}) as mock_request_json:
+        impl.find_account_activity_master_data("acct1")
+
+    assert mock_request_json.call_args.args[:2] == ("GET", "http://example.test/api/v2/account/acct1/activity/master-data")

@@ -55,18 +55,18 @@ class InMotionActivitiesImpl(InMotionActivities):
                              'Failed to retrieve activities',
                              ActivitiesModel)
 
-    def find_latest_activity_stats(self, since: datetime, max_records: int) -> LastActivitiesModel:
+    def find_latest_activity_stats(self, since: datetime, lite: bool = False) -> LastActivitiesModel:
         since_millis = int(since.timestamp() * 1000)
-        postfix_path = f"activities/latest/{self._session.account}/{since_millis}/{max_records}"
+        postfix_path = f"activities/latest/{self._session.account}/{since_millis}{'?detail=lite' if lite else ''}"
         return request_json('GET', f"{self._prefix_path}/{postfix_path}",
                              self._session.build_headers(content=''),
                              '',
                              'Failed to load latest activities',
                              LastActivitiesModel)
 
-    def find_latest_activity_stats_by_type(self, since: datetime, coord_conv: str) -> LastActivitiesModel:
+    def find_latest_activity_stats_by_type(self, since: datetime, coord_conv: str, lite: bool = False) -> LastActivitiesModel:
         since_millis = int(since.timestamp() * 1000)
-        postfix_path = f"activities/latest/{self._session.account}/{since_millis}/{coord_conv}"
+        postfix_path = f"activities/latest/{self._session.account}/{since_millis}/{coord_conv}{'?detail=lite' if lite else ''}"
         return request_json('GET', f"{self._prefix_path}/{postfix_path}",
                              self._session.build_headers(content=''),
                              '',
@@ -161,8 +161,9 @@ class InMotionActivitiesImpl(InMotionActivities):
                              'Failed to retrieve track records',
                              TrackRecordsModel)
 
-    def find_all_track_records(self, track_key: str) -> TrackRecordsModel:
-        return request_json('GET', f"{self._prefix_path}/activity/track/records/{track_key}",
+    def find_all_track_records(self, track_key: str, after: Optional[datetime] = None) -> TrackRecordsModel:
+        query = f"?after={int(after.timestamp() * 1000)}" if after else ''
+        return request_json('GET', f"{self._prefix_path}/activity/track/records/{track_key}{query}",
                              self._session.build_headers(content=''),
                              '',
                              'Failed to retrieve track records',

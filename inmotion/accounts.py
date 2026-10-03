@@ -11,8 +11,11 @@ from inmotion.models import (
     AccountUpdateBatchResultsModel,
     AccountUserSummaryModel,
     AccountUserUnregisteredModel,
+    AddAccountMemberRequestModel,
     DeviceConfigSyncRequestModel,
     DeviceConfigSyncResultModel,
+    FriendInviteModel,
+    FriendInviteRequestModel,
     UserAccountSummaryModel,
 )
 from inmotion.utils import request_json, request_json_map, stringify
@@ -118,6 +121,66 @@ class InMotionAccountsImpl(InMotionAccounts):
                              request_data,
                              'Failed to sync device configs',
                              DeviceConfigSyncResultModel)
+
+    def add_account_member(self, account_key: str, request: AddAccountMemberRequestModel) -> dict:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/members",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to add account member')
+
+    def send_friend_invite(self, account_key: str, request: FriendInviteRequestModel) -> FriendInviteModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/invites",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to send friend invite',
+                             FriendInviteModel)
+
+    def list_friend_invites(self, account_key: str) -> list[FriendInviteModel]:
+        return request_json('GET', f"{self._prefix_path}/account/{account_key}/invites",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to list friend invites',
+                             FriendInviteModel,
+                             many=True)
+
+    def revoke_friend_invite(self, account_key: str, token: str) -> FriendInviteModel:
+        return request_json('DELETE', f"{self._prefix_path}/account/{account_key}/invites/{token}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to revoke friend invite',
+                             FriendInviteModel)
+
+    def list_activity_types(self, account_key: str) -> list[dict]:
+        return request_json('GET', f"{self._prefix_path}/account/{account_key}/activity-types",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to list activity types')
+
+    def find_account_activity_master_data(self, account_key: str) -> dict:
+        return request_json('GET', f"{self._prefix_path}/account/{account_key}/activity/master-data",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve account activity master data')
+
+    def create_activity_type(self, account_key: str, yaml_document: str) -> dict:
+        return request_json('POST', f"{self._prefix_path}/account/{account_key}/activity-types",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to create activity type')
+
+    def update_activity_type(self, account_key: str, key: str, yaml_document: str) -> dict:
+        return request_json('PUT', f"{self._prefix_path}/account/{account_key}/activity-types/{key}",
+                             _text_headers(self._session, yaml_document),
+                             yaml_document,
+                             'Failed to update activity type')
+
+    def delete_activity_type(self, account_key: str, key: str) -> None:
+        request_json('DELETE', f"{self._prefix_path}/account/{account_key}/activity-types/{key}",
+                     self._session.build_headers(content=''),
+                     '',
+                     'Failed to delete activity type')
 
     def list_standard_data_types(self, account_key: str) -> list[dict]:
         return request_json('GET', f"{self._prefix_path}/account/{account_key}/sdt/data-types",

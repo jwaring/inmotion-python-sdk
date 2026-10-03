@@ -1,10 +1,12 @@
 from inmotion.api import InMotionSession, InMotionUser
 from inmotion.models import (
     AccountUserSummaryModel,
+    FriendInviteInfoModel,
     MessageResponseModel,
     MfaBackupCodesModel,
     MfaDisableRequestModel,
     MfaEnrollRequestModel,
+    MfaPreferredMethodRequestModel,
     MfaStatusModel,
     OTCModel,
     TotpBackupCodesRegenerateRequestModel,
@@ -123,3 +125,26 @@ class InMotionUserImpl(InMotionUser):
                              request_data,
                              'Failed to disable MFA',
                              MfaStatusModel)
+
+    def set_preferred_mfa_method(self, request: MfaPreferredMethodRequestModel) -> MfaStatusModel:
+        request_data = stringify(request)
+        return request_json('POST', f"{self._prefix_path}/user/mfa/preferred-method",
+                             self._session.build_headers(content=request_data),
+                             request_data,
+                             'Failed to set preferred MFA method',
+                             MfaStatusModel)
+
+    def find_friend_invite(self, token: str) -> FriendInviteInfoModel:
+        return request_json('GET', f"{self._prefix_path}/user/invite/{token}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve friend invite',
+                             FriendInviteInfoModel)
+
+    def accept_friend_invite(self, token: str, registration: UserRegistrationModel) -> AccountUserSummaryModel:
+        registration_data = stringify(registration)
+        return request_json('POST', f"{self._prefix_path}/user/invite/{token}/accept",
+                             self._session.build_headers(content=registration_data),
+                             registration_data,
+                             'Failed to accept friend invite',
+                             AccountUserSummaryModel)

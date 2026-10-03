@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from inmotion.activities import InMotionActivitiesImpl
-from inmotion.models import ActivityAnalyticsRequestModel, ActivityBatchCommandsModel, ActivityUpdateResponseModel, CoordinateConvention
+from inmotion.models import ActivitySearchFilterModel, ActivityAnalyticsRequestModel, ActivityBatchCommandsModel, ActivityUpdateResponseModel, CoordinateConvention
 
 
 def _fake_session():
@@ -114,7 +114,7 @@ def test_find_latest_activity_stats_issues_a_get():
     impl = InMotionActivitiesImpl(session)
 
     with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
-        impl.find_latest_activity_stats(datetime(2024, 1, 1, tzinfo=timezone.utc), 10)
+        impl.find_latest_activity_stats(datetime(2024, 1, 1, tzinfo=timezone.utc))
 
     assert mock_request_json.call_args.args[0] == "GET"
 
@@ -263,3 +263,36 @@ def test_batch_record_update_posts_commands_and_uses_many_true():
     assert mock_request_json.call_args.args[0] == "POST"
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activities/batch"
     assert mock_request_json.call_args.kwargs["many"] is True
+
+
+def test_find_latest_activity_stats_lite_adds_detail_query():
+    impl = InMotionActivitiesImpl(_fake_session())
+
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_latest_activity_stats(datetime(2024, 1, 1, tzinfo=timezone.utc), lite=True)
+
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activities/latest/my-account/1704067200000?detail=lite"
+
+
+def test_find_all_track_records_after_adds_after_query():
+    impl = InMotionActivitiesImpl(_fake_session())
+
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_all_track_records("trk1", after=datetime(2024, 1, 1, tzinfo=timezone.utc))
+
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activity/track/records/trk1?after=1704067200000"
+
+
+def test_find_activities_loads_a_summary_carrying_retention_locked():
+    impl = InMotionActivitiesImpl(_fake_session())
+
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"activities": [{"activity": {
+        "key": "k", "account": "a", "actType": "t", "name": "n", "comment": "", "tags": [],
+        "sourceIdentifier": "s", "sourceCategory": "c", "sourceName": "sn", "acqConv": "SITE",
+        "created": 1, "timezone": "UTC", "start": None, "end": None, "retentionLocked": True,
+    }}]}
+    with patch("inmotion.utils._http_session.request", return_value=mock_response):
+        result = impl.find_activities(ActivitySearchFilterModel())
+
+    assert result.activities[0].activity.retentionLocked is True

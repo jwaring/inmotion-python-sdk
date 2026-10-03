@@ -34,7 +34,7 @@ from inmotion import (
     InMotionUpload,
     InMotionUser,
 )
-from inmotion.models import AuthenticationSessionModel, MfaResendResultModel
+from inmotion.models import AuthenticationSessionModel, MfaChallengeModel, MfaResendResultModel, MfaSwitchMethodRequestModel
 from inmotion.upload import InMotionUploadImpl
 from inmotion.user import InMotionUserImpl
 from inmotion.utils import build_im_headers, request_json, stringify
@@ -196,6 +196,23 @@ class InMotionCredentialsClient(object):
                              '',
                              'Failed to resend MFA challenge',
                              MfaResendResultModel)
+
+    def switch_mfa_method(self, mfa_token: str, method: str) -> MfaChallengeModel:
+        """ Switch an in-progress login challenge to a different method the account has already
+        enrolled (e.g. from TOTP to EMAIL). Issues a fresh pending token - use the returned
+        `mfaToken` with verify_mfa/resend_mfa from here on. Fails (400) if `method` isn't enrolled. """
+        request_data = stringify(MfaSwitchMethodRequestModel(method=method))
+        return request_json('POST', self._base_url + "/api/latest/authenticate/mfa/switch",
+                             build_im_headers(
+                                 dev_key=self._dev_key,
+                                 dev_secret=self._dev_secret,
+                                 content=request_data,
+                                 extra_name='X-Auth-Token',
+                                 extra_value=mfa_token,
+                             ),
+                             request_data,
+                             'Failed to switch MFA method',
+                             MfaChallengeModel)
 
     def _session_from_capabilities(self, account: str, capabilities: AuthenticationSessionModel) -> InMotionCredentialsSession:
         match capabilities.status:

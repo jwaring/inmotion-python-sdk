@@ -91,3 +91,41 @@ def test_create_otc_issues_a_get_at_root_level_otc_path():
 
     assert mock_request_json.call_args.args[0] == "GET"
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/otc"
+
+
+def test_set_preferred_mfa_method_posts_method():
+    from inmotion.models import MfaPreferredMethodRequestModel
+
+    impl = InMotionUserImpl(_fake_session())
+
+    with patch("inmotion.user.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.set_preferred_mfa_method(MfaPreferredMethodRequestModel(method="EMAIL"))
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/user/mfa/preferred-method"
+    assert mock_request_json.call_args.args[3] == '{"method":"EMAIL"}'
+
+
+def test_find_friend_invite_issues_a_get_on_the_token():
+    impl = InMotionUserImpl(_fake_session())
+
+    with patch("inmotion.user.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.find_friend_invite("tok1")
+
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/user/invite/tok1"
+
+
+def test_accept_friend_invite_posts_registration_to_the_token():
+    impl = InMotionUserImpl(_fake_session())
+
+    registration = UserRegistrationModel(
+        userKey="u1", userName="jdoe", password="pw", displayName="J Doe", email="j@x.com",
+        attrs={}, licenseAccepted=0, publicUserName=False, firstName=None, lastName=None, avatarUrl=None,
+    )
+    with patch("inmotion.user.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.accept_friend_invite("tok1", registration)
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/user/invite/tok1/accept"
+    assert '"userName":"jdoe"' in mock_request_json.call_args.args[3]
