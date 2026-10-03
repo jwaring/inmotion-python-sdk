@@ -1486,6 +1486,7 @@ class ActivitySummaryModel:
     start: Optional[int]
     end: Optional[int]
     lockStatus: Optional[LockStatusModel] = None
+    retentionLocked: bool = False
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
@@ -1600,6 +1601,7 @@ class ActivityDetailsModel:
     lockStatus: Optional[LockStatusModel] = None
     interval: Optional[Interval] = None
     shareInfo: Optional[list[ActivityShareInfoModel]] = None
+    retentionLocked: bool = False
 
 @dataclass
 class ActivityBlockStatisticsModel:
@@ -1862,6 +1864,10 @@ class TrackRecordsModel(ActivityRecordsModel):
     metadata: dict[str, ActivityVariableMetadataModel]
     markers: Optional[list[ActivityTrackMarkerModel]]
     statistics: Optional[ActivityTrackStatisticsModel]
+    lastRecorded: Optional[int] = None
+
+    def last_recorded_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.lastRecorded / 1000.0) if self.lastRecorded is not None else None
 
 @dataclass
 class TrackActivityModel:
@@ -2436,6 +2442,9 @@ class MfaStatusModel:
     method: Optional[str] = None
     enrolledAt: Optional[int] = None
     available: Optional[bool] = None
+    enrolledMethods: list[str] = field(default_factory=list)
+    preferredMethod: Optional[str] = None
+    unavailableReason: Optional[str] = None
 
     def enrolled_at_datetime(self) -> Optional[datetime]:
         return datetime.fromtimestamp(self.enrolledAt / 1000.0) if self.enrolledAt is not None else None
@@ -2447,7 +2456,16 @@ class MfaEnrollRequestModel:
 
 @dataclass
 class MfaDisableRequestModel:
+    method: str
     password: str
+
+@dataclass
+class MfaPreferredMethodRequestModel:
+    method: str
+
+@dataclass
+class MfaSwitchMethodRequestModel:
+    method: str
 
 @dataclass
 class TotpEnrollBeginRequestModel:
@@ -2470,3 +2488,36 @@ class TotpBackupCodesRegenerateRequestModel:
 @dataclass
 class MfaBackupCodesModel:
     backupCodes: list[str] = field(default_factory=list)
+
+@dataclass
+class FriendInviteModel:
+    """ A friend-invite as seen by the inviter. Its status is derived from `activated`,
+    `revoked` and `expiration`. """
+    token: str
+    inviteeEmail: str
+    expiration: int
+    lastUpdated: int
+    activated: Optional[int] = None
+    revoked: Optional[int] = None
+    message: Optional[str] = None
+
+@dataclass
+class FriendInviteInfoModel:
+    """ Just enough of a friend-invite to prefill the invitee's sign-up page. """
+    accountName: str
+    inviterDisplayName: str
+    inviteeEmail: str
+    expiration: int
+
+@dataclass
+class FriendInviteRequestModel:
+    inviteeEmail: str
+    consent: bool
+    message: Optional[str] = None
+
+@dataclass
+class AddAccountMemberRequestModel:
+    usernameOrEmail: str
+    privileges: AccountPrivilegesModel
+    consent: bool
+    message: Optional[str] = None

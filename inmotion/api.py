@@ -19,6 +19,7 @@ from inmotion.models import (
     AccountUpdateBatchCommandModel,
     AccountUpdateBatchResultsModel,
     AccountUserSummaryModel,
+    AddAccountMemberRequestModel,
     AccountUserUnregisteredModel,
     ActivitiesModel,
     ActivityConfigBadPeriodDetectRequestModel,
@@ -73,8 +74,12 @@ from inmotion.models import (
     MessageResponseModel,
     MfaBackupCodesModel,
     MfaDisableRequestModel,
+    MfaPreferredMethodRequestModel,
     MfaEnrollRequestModel,
     MfaStatusModel,
+    FriendInviteInfoModel,
+    FriendInviteModel,
+    FriendInviteRequestModel,
     ModelFieldGroupModel,
     ModelSummaryModel,
     ModelTreeModel,
@@ -144,22 +149,23 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def find_latest_activity_stats(self, since: datetime, max_records: int) -> LastActivitiesModel:
-        """ Retrieve the latest records for all activities since the provide date, with a maximum specified history
+    def find_latest_activity_stats(self, since: datetime, lite: bool = False) -> LastActivitiesModel:
+        """ Retrieve the latest records for all activities since the provided date
 
         :param datetime since: The date/time to search from
-        :param int max_records: The maximum number of records to return
+        :param bool lite: If true, each sensor carries only its last value, without the statistics over the window
         :return: The latest activities since the specified date
         :rtype: LastActivitiesModel
         """
         pass
 
     @abstractmethod
-    def find_latest_activity_stats_by_type(self, since: datetime, coord_conv: str) -> LastActivitiesModel:
+    def find_latest_activity_stats_by_type(self, since: datetime, coord_conv: str, lite: bool = False) -> LastActivitiesModel:
         """ Retrieve the latest records for all activities of a specific Coordinate Convention since the provided date
 
         :param datetime since: The date/time to search from
         :param str coord_conv: The Coordinate Convention to restrict results to (see CoordinateConvention)
+        :param bool lite: If true, each sensor carries only its last value, without the statistics over the window
         :return: The latest activities since the specified date
         :rtype: LastActivitiesModel
         """
@@ -276,11 +282,14 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def find_all_track_records(self, track_key: str) -> TrackRecordsModel:
-        """ Retrieve all records for a track activity, without a time range restriction
+    def find_all_track_records(self, track_key: str, after: Optional[datetime] = None) -> TrackRecordsModel:
+        """ Retrieve the records for a track activity, without an upper time restriction
 
         :param str track_key: The unique key of the track activity to retrieve records from
-        :return: All records for the track activity
+        :param Optional[datetime] after: If given, only records recorded after this time are returned. The
+            statistics and markers are still those of the whole track, and `lastRecorded` on the result
+            gives the time of the track's final record - pass it back as `after` to poll for new records.
+        :return: The records for the track activity
         :rtype: TrackRecordsModel
         """
         pass
@@ -792,6 +801,116 @@ class InMotionAccounts(ABC):
         :param DeviceConfigSyncRequestModel request: The sync window and accounts to include
         :return: The delta - entries changed since `since`, plus tombstones
         :rtype: DeviceConfigSyncResultModel
+        """
+        pass
+
+    @abstractmethod
+    def add_account_member(self, account_key: str, request: AddAccountMemberRequestModel) -> dict:
+        """ Add someone to an account by username or email. If the value resolves to an existing inMotion
+        user they are registered immediately; otherwise (given `consent`) an external invite is sent instead.
+        Requires account admin.
+
+        :param str account_key: The unique key of the account
+        :param AddAccountMemberRequestModel request: Who to add, the access to grant, and the consent/message
+            used only if an invite has to be sent
+        :return: A dict discriminated by `kind` - `"member"` (with `user`, an account user summary) or
+            `"invite"` (with `invite`, a friend-invite)
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def send_friend_invite(self, account_key: str, request: FriendInviteRequestModel) -> FriendInviteModel:
+        """ Invite someone who is not yet an inMotion user to join an account, by email. Rejected if the
+        email already belongs to a registered user. Requires account admin; rate limited per address.
+
+        :param str account_key: The unique key of the account
+        :param FriendInviteRequestModel request: The email to invite, `consent` (must be true) and an
+            optional personal note (max 200 characters)
+        :return: The created invite
+        :rtype: FriendInviteModel
+        """
+        pass
+
+    @abstractmethod
+    def list_friend_invites(self, account_key: str) -> list[FriendInviteModel]:
+        """ List the friend-invites sent from an account. Requires account admin.
+
+        :param str account_key: The unique key of the account
+        :return: The account's invites, whatever their status
+        :rtype: list[FriendInviteModel]
+        """
+        pass
+
+    @abstractmethod
+    def revoke_friend_invite(self, account_key: str, token: str) -> FriendInviteModel:
+        """ Cancel a still-pending friend-invite so it can no longer be accepted. No-op if it was already
+        accepted or revoked. Requires account admin.
+
+        :param str account_key: The unique key of the account
+        :param str token: The invite's token
+        :return: The invite, as it now stands
+        :rtype: FriendInviteModel
+        """
+        pass
+
+    @abstractmethod
+    def list_activity_types(self, account_key: str) -> list[dict]:
+        """ List every Activity Type (global and account-scoped custom, each tagged its own `source`)
+        browsable by an account.
+
+        :param str account_key: The unique key of the account
+        :return: Every Activity Type entry, as raw dicts (no fixed schema is declared server-side)
+        :rtype: list[dict]
+        """
+        pass
+
+    @abstractmethod
+    def find_account_activity_master_data(self, account_key: str) -> dict:
+        """ Fetch master data (profile types, standard data types and activity types) for an account.
+        Same shape as `InMotionActivities.find_activity_master_data`, but the activity types are the
+        account's merged set - the global catalog plus its own custom Activity Types, the account's
+        winning on a key collision. Readable by any account member.
+
+        :param str account_key: The unique key of the account
+        :return: The account's merged master data, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def create_activity_type(self, account_key: str, yaml_document: str) -> dict:
+        """ Create an account-scoped custom Activity Type. Requires the "custom-activity-type" account
+        feature. Fails if the account already has a custom Activity Type at that key.
+
+        :param str account_key: The unique key of the account
+        :param str yaml_document: A standalone single-entry YAML document; its identity is its own `key` field
+        :return: The created Activity Type entry, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def update_activity_type(self, account_key: str, key: str, yaml_document: str) -> dict:
+        """ Update an account-scoped custom Activity Type. Requires the "custom-activity-type" account
+        feature. Fails if none exists yet at `key` (use create_activity_type), or if the document's own
+        `key` field doesn't match `key`.
+
+        :param str account_key: The unique key of the account
+        :param str key: The key of the custom Activity Type to update
+        :param str yaml_document: A standalone single-entry YAML document
+        :return: The updated Activity Type entry, as a raw dict
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def delete_activity_type(self, account_key: str, key: str) -> None:
+        """ Delete an account-scoped custom Activity Type. Idempotent. Requires the "custom-activity-type"
+        account feature.
+
+        :param str account_key: The unique key of the account
+        :param str key: The key of the custom Activity Type to delete
         """
         pass
 
@@ -1357,11 +1476,46 @@ class InMotionUser(ABC):
 
     @abstractmethod
     def disable_mfa(self, request: MfaDisableRequestModel) -> MfaStatusModel:
-        """ Disable MFA for the caller's own account. Requires re-entering the current password.
+        """ Disable one MFA method for the caller's own account (not all of them at once). Requires
+        re-entering the current password. If it was the last enrolled method, MFA is turned off overall.
 
-        :param MfaDisableRequestModel request: The current password
-        :return: The user's MFA status, now disabled
+        :param MfaDisableRequestModel request: The method to disable and the current password
+        :return: The user's MFA status after the method was disabled
         :rtype: MfaStatusModel
+        """
+        pass
+
+    @abstractmethod
+    def set_preferred_mfa_method(self, request: MfaPreferredMethodRequestModel) -> MfaStatusModel:
+        """ Choose which already-enrolled MFA method is challenged at login, overriding the
+        TOTP-then-EMAIL default. Rejected (400) if the method isn't currently enrolled.
+
+        :param MfaPreferredMethodRequestModel request: The method to prefer
+        :return: The user's MFA status, with the new `preferredMethod`
+        :rtype: MfaStatusModel
+        """
+        pass
+
+    @abstractmethod
+    def find_friend_invite(self, token: str) -> FriendInviteInfoModel:
+        """ Look up a friend-invite's sign-up prefill details. Public - the invitee has no inMotion
+        identity yet. Fails (404) if the token is invalid, expired, revoked or already accepted.
+
+        :param str token: The invite's token
+        :return: The account and inviter the invite is from, and the email it was issued to
+        :rtype: FriendInviteInfoModel
+        """
+        pass
+
+    @abstractmethod
+    def accept_friend_invite(self, token: str, registration: UserRegistrationModel) -> AccountUserSummaryModel:
+        """ Accept a friend-invite: creates the invitee's user and attaches it to the inviting account at
+        a fixed low-privilege tier. Public. The registration's email is ignored - the invite's own is used.
+
+        :param str token: The invite's token
+        :param UserRegistrationModel registration: The new user's registration details
+        :return: The created user, as a member of the inviting account
+        :rtype: AccountUserSummaryModel
         """
         pass
 

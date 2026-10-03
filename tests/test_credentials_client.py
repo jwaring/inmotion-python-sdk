@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -54,3 +54,13 @@ def test_session_disconnect_updates_is_connected():
     assert session.is_connected is True
     session.disconnect()
     assert session.is_connected is False
+
+
+def test_switch_mfa_method_posts_method_with_the_pending_token():
+    with patch("inmotion.credentials_client.request_json", return_value=MagicMock()) as mock_request_json:
+        _client().switch_mfa_method("pending-tok", "EMAIL")
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/latest/authenticate/mfa/switch"
+    assert mock_request_json.call_args.args[2]["X-Auth-Token"] == "pending-tok"
+    assert mock_request_json.call_args.args[3] == '{"method":"EMAIL"}'
