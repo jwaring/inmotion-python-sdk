@@ -300,8 +300,9 @@ class InMotionActivitiesImpl(InMotionActivities):
                              'Failed to retrieve site records',
                              SiteRecordsModel)
 
-    def find_all_site_records(self, site_key: str) -> SiteRecordsModel:
-        return request_json('GET', f"{self._prefix_path}/activity/site/records/{site_key}",
+    def find_all_site_records(self, site_key: str, after: Optional[datetime] = None) -> SiteRecordsModel:
+        query = f"?after={int(after.timestamp() * 1000)}" if after else ''
+        return request_json('GET', f"{self._prefix_path}/activity/site/records/{site_key}{query}",
                              self._session.build_headers(content=''),
                              '',
                              'Failed to retrieve site records',

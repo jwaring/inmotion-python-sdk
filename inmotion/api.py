@@ -478,10 +478,13 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def find_all_site_records(self, site_key: str) -> SiteRecordsModel:
+    def find_all_site_records(self, site_key: str, after: Optional[datetime] = None) -> SiteRecordsModel:
         """ Retrieve all records for a site activity, without a time range restriction
 
         :param str site_key: The unique key of the site activity to retrieve records from
+        :param Optional[datetime] after: If given, only records recorded after this time are returned. The
+            statistics are still those of all the records, and `lastRecorded` on the result gives the time
+            of the final record - pass it back as `after` to poll for new records.
         :return: All records for the site activity
         :rtype: SiteRecordsModel
         """

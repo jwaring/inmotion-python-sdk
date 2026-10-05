@@ -1934,6 +1934,10 @@ class SiteRecordsModel(ActivityRecordsModel):
     metadata: dict[str, ActivityVariableMetadataModel]
     location: ActivityLocationModel
     statistics: Optional[ActivitySiteStatisticsModel]
+    lastRecorded: Optional[int] = None
+
+    def last_recorded_datetime(self) -> Optional[datetime]:
+        return datetime.fromtimestamp(self.lastRecorded / 1000.0) if self.lastRecorded is not None else None
 
 @dataclass
 class SiteActivityModel:
