@@ -144,7 +144,7 @@ class InMotionCredentialsClient(object):
          user for their MFA code, and call verify_mfa(account, error.mfa_token, code) to complete
          the login.
         """
-        login_details = stringify({'username': username, 'password': password, 'apiVersion': self._api_version})
+        login_details = stringify({'username': username, 'password': password, 'requiredApiVersion': self._api_version})
         raw = request_json('POST', self._base_url + "/api/latest/authenticate",
                             build_im_headers(
                                 dev_key=self._dev_key,
@@ -168,7 +168,7 @@ class InMotionCredentialsClient(object):
          Complete a login that was interrupted by InMotionMfaRequiredError, by submitting the
          user's MFA code against the pending token.
         """
-        verify_details = stringify({'code': code, 'apiVersion': self._api_version})
+        verify_details = stringify({'code': code, 'requiredApiVersion': self._api_version})
         capabilities = request_json('POST', self._base_url + "/api/latest/authenticate/mfa",
                                      build_im_headers(
                                          dev_key=self._dev_key,

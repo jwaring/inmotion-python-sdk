@@ -298,3 +298,16 @@ def test_find_blobs_posts_filter_and_uses_many_true():
     assert mock_request_json.call_args.args[0] == "POST"
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/data-streams/blobs"
     assert mock_request_json.call_args.kwargs["many"] is True
+
+
+def test_retrieve_statistics_builds_iso_window_and_query():
+    impl = InMotionDataStreamImpl(_fake_session())
+    with patch("inmotion.datastream.request_json", return_value={"available": True}) as mock_request_json:
+        result = impl.retrieve_statistics("k1", "AA", datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+                                          datetime(2026, 1, 3, tzinfo=timezone.utc), max_points=300)
+
+    assert result == {"available": True}
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == (
+        "http://example.test/api/v2/data-stream/data/k1/AA/statistics/"
+        "2026-01-02T03%3A04%3A05.000Z/2026-01-03T00%3A00%3A00.000Z?maxPoints=300")

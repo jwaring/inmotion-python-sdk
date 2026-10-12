@@ -1,4 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
+from urllib.parse import quote, urlencode
 
 from inmotion.api import InMotionSession, InMotionDataStream
 from inmotion.models import (
@@ -116,6 +118,22 @@ class InMotionDataStreamImpl(InMotionDataStream):
                              self._session.build_headers(content=''),
                              '',
                              'Failed to retrieve hyperslab record data')
+
+    def retrieve_statistics(self, key: str, channel_code: str, start: datetime, end: datetime,
+                            max_points: Optional[int] = None, bucket_ms: Optional[int] = None,
+                            unit_system: Optional[str] = None) -> dict:
+        def iso(moment: datetime) -> str:
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=timezone.utc)
+            return quote(moment.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'), safe='')
+        params = {name: value for name, value in
+                  (('maxPoints', max_points), ('bucketMs', bucket_ms), ('unitSystem', unit_system))
+                  if value is not None}
+        query = f"?{urlencode(params)}" if params else ''
+        return request_json('GET', f"{self._ds_path}/data/{key}/{channel_code}/statistics/{iso(start)}/{iso(end)}{query}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve statistics')
 
     def update_hyperslab_record_data(self, key: str, channel_code: str, data: dict) -> dict:
         data_str = stringify(data)

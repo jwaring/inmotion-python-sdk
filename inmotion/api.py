@@ -2501,6 +2501,26 @@ class InMotionDataStream(ABC):
         pass
 
     @abstractmethod
+    def retrieve_statistics(self, key: str, channel_code: str, start: datetime, end: datetime,
+                            max_points: Optional[int] = None, bucket_ms: Optional[int] = None,
+                            unit_system: Optional[str] = None) -> dict:
+        """ Retrieve roll-up statistics (per-bucket count, mean, spread) for a window of a channel
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code of the source channel (not a roll-up channel)
+        :param datetime start: The start of the window (naive values are taken as UTC)
+        :param datetime end: The end of the window
+        :param int max_points: The most buckets to return; coarser buckets are chosen to fit
+        :param int bucket_ms: A bucket length to ask for, instead of letting the server choose
+        :param str unit_system: The unit system for the values (default: the user's preferred system)
+        :return: A raw dict with `available`, `resolution`, `times` and per-variable `values`
+                 columns; `available` is false when no roll-up covers the request, in which case
+                 read the raw records instead
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
     def update_hyperslab_record_data(self, key: str, channel_code: str, data: dict) -> dict:
         """ Update hyperslab record (time-varying) data
 

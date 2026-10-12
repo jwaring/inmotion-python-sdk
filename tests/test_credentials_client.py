@@ -37,6 +37,15 @@ def test_get_session_active_returns_session_with_token():
     assert mock_request_json.call_args.args[1] == "http://example.test/api/latest/authenticate"
 
 
+def test_get_session_accepts_expiry_and_device_trust_fields():
+    raw = {**_auth_session("active"), "expiresInSeconds": 1800, "deviceTrustToken": "trust-1"}
+    with patch("inmotion.credentials_client.request_json", return_value=raw) as mock_request_json:
+        session = _client().get_session("my-account", "user", "pass")
+
+    assert session.is_connected is True
+    assert '"requiredApiVersion"' in mock_request_json.call_args.args[3]
+
+
 def test_get_session_other_status_raises_authentication_error():
     with patch("inmotion.credentials_client.request_json", return_value=_auth_session("revoked")):
         with pytest.raises(InMotionAuthenticationError, match="expired or unavailable"):

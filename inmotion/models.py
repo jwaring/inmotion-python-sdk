@@ -1977,6 +1977,7 @@ class AuthenticationRequestModel:
     password: str
     requiredApiVersion: Optional[str] = None
     withMasterData: Optional[bool] = None
+    deviceTrustToken: Optional[str] = None
 
 @dataclass
 class AuthenticationSessionModel:
@@ -1989,6 +1990,8 @@ class AuthenticationSessionModel:
     requestedVersion: str
     requestedVersionExpiryDate: Optional[int]
     masterData: Optional[MasterDataModel] = None
+    expiresInSeconds: Optional[int] = None
+    deviceTrustToken: Optional[str] = None
 
     def requested_version_expiry_datetime(self) -> Optional[datetime]:
         if self.requestedVersionExpiryDate:
