@@ -73,6 +73,8 @@ from inmotion.models import (
     MasterDataModel,
     MessageResponseModel,
     MfaBackupCodesModel,
+    StatisticsModel,
+    StatusMessageModel,
     MfaDisableRequestModel,
     MfaPreferredMethodRequestModel,
     MfaEnrollRequestModel,
@@ -763,6 +765,17 @@ class InMotionAccounts(ABC):
         :param AccountModel account: The definition of the account to create
         :return: The created account's details
         :rtype: AccountDetailsModel
+        """
+        pass
+
+    @abstractmethod
+    def request_account_data(self, account_key: str) -> StatusMessageModel:
+        """ Request a copy of all the account's data, which is prepared and sent to the owner.
+        Limited to a few requests per day.
+
+        :param str account_key: The unique key of the account (the caller must own it)
+        :return: The status of the request
+        :rtype: StatusMessageModel
         """
         pass
 
@@ -2503,7 +2516,7 @@ class InMotionDataStream(ABC):
     @abstractmethod
     def retrieve_statistics(self, key: str, channel_code: str, start: datetime, end: datetime,
                             max_points: Optional[int] = None, bucket_ms: Optional[int] = None,
-                            unit_system: Optional[str] = None) -> dict:
+                            unit_system: Optional[str] = None) -> StatisticsModel:
         """ Retrieve roll-up statistics (per-bucket count, mean, spread) for a window of a channel
 
         :param str key: The unique key of the data stream
@@ -2513,10 +2526,9 @@ class InMotionDataStream(ABC):
         :param int max_points: The most buckets to return; coarser buckets are chosen to fit
         :param int bucket_ms: A bucket length to ask for, instead of letting the server choose
         :param str unit_system: The unit system for the values (default: the user's preferred system)
-        :return: A raw dict with `available`, `resolution`, `times` and per-variable `values`
-                 columns; `available` is false when no roll-up covers the request, in which case
-                 read the raw records instead
-        :rtype: dict
+        :return: The bucket times and per-variable columns (n, mean, min, max, ...); `available`
+                 is false when no roll-up covers the request, in which case read the raw records instead
+        :rtype: StatisticsModel
         """
         pass
 
@@ -2587,6 +2599,19 @@ class InMotionDataStream(ABC):
         :param str profile: The storage profile to update
         :param bytes data: The raw bytes to store
         :return: The updated invariant blob's metadata
+        :rtype: DataStreamInvariantBlobMetadataModel
+        """
+        pass
+
+    @abstractmethod
+    def register_invariant_blob_data(self, key: str, channel_code: str, profile: str, data_uuid: str) -> DataStreamInvariantBlobMetadataModel:
+        """ Register already-uploaded data as the invariant (static) blob of a channel/profile
+
+        :param str key: The unique key of the data stream
+        :param str channel_code: The code identifying the channel type
+        :param str profile: The storage profile to update
+        :param str data_uuid: The identifier of the stored data to register
+        :return: The registered invariant blob's metadata
         :rtype: DataStreamInvariantBlobMetadataModel
         """
         pass

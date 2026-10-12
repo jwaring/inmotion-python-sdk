@@ -73,3 +73,57 @@ def test_switch_mfa_method_posts_method_with_the_pending_token():
     assert mock_request_json.call_args.args[1] == "http://example.test/api/latest/authenticate/mfa/switch"
     assert mock_request_json.call_args.args[2]["X-Auth-Token"] == "pending-tok"
     assert mock_request_json.call_args.args[3] == '{"method":"EMAIL"}'
+
+
+def test_get_session_ignores_fields_the_sdk_does_not_know():
+    raw = {**_auth_session("active"), "someFutureField": {"nested": 1}}
+    with patch("inmotion.credentials_client.request_json", return_value=raw):
+        assert _client().get_session("my-account", "user", "pass").is_connected is True
+
+
+def test_disconnect_logs_out_with_the_session_token():
+    session = InMotionCredentialsSession("http://example.test", "devkey", "devsecret", "tok-123", "acct", "/api/v2")
+    with patch("inmotion.credentials_client.request_json", return_value=MagicMock()) as mock_request_json:
+        session.disconnect()
+        session.disconnect()
+
+    assert mock_request_json.call_count == 1
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/latest/authenticate/logout"
+    assert mock_request_json.call_args.args[2]["X-Auth-Token"] == "tok-123"
+    assert session.is_connected is False
+
+
+def test_disconnect_closes_locally_when_the_server_cannot_be_reached():
+    from inmotion.exceptions import InMotionConnectionError
+    session = InMotionCredentialsSession("http://example.test", "devkey", "devsecret", "tok-123", "acct", "/api/v2")
+    with patch("inmotion.credentials_client.request_json", side_effect=InMotionConnectionError("down")):
+        session.disconnect()
+    assert session.is_connected is False
+
+
+@pytest.mark.parametrize("method,step", [("complete_mfa_enrollment", "complete"), ("skip_mfa_enrollment", "skip")])
+def test_mfa_enrollment_exchanges_the_enroll_token_for_a_session(method, step):
+    from inmotion.models import AuthenticationSessionModel
+    session_model = AuthenticationSessionModel(**_auth_session("active"))
+    with patch("inmotion.credentials_client.request_json", return_value=session_model) as mock_request_json:
+        session = getattr(_client(), method)("my-account", "enroll-1")
+
+    assert isinstance(session, InMotionCredentialsSession)
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == f"http://example.test/api/latest/authenticate/enrollment/{step}"
+    assert mock_request_json.call_args.args[2]["X-Auth-Token"] == "enroll-1"
+
+
+def test_register_account_posts_the_registration_unauthenticated():
+    from inmotion.models import AccountRegistrationModel, UserRegistrationModel
+    owner = UserRegistrationModel(userKey="u", userName="u", password="p", displayName="U", email="u@example.test",
+                                  attrs={}, licenseAccepted=0, publicUserName=False)
+    registration = AccountRegistrationModel(owner=owner, name="Acme", accountType="FREE_PERSONAL", address=None, profiles=[], attrs={})
+    with patch("inmotion.credentials_client.request_json", return_value=MagicMock()) as mock_request_json:
+        _client().register_account(registration)
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/latest/account"
+    assert "X-Auth-Token" not in mock_request_json.call_args.args[2]
+    assert '"accountType":"FREE_PERSONAL"' in mock_request_json.call_args.args[3]

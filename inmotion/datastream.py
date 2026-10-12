@@ -12,6 +12,7 @@ from inmotion.models import (
     DataStreamInvariantBlobMetadataModel,
     DataStreamRecordsBlobMetadataModel,
     DataStreamSummaryModel,
+    StatisticsModel,
 )
 from inmotion.utils import request_json, request_json_map, request_raw, stringify
 
@@ -121,7 +122,7 @@ class InMotionDataStreamImpl(InMotionDataStream):
 
     def retrieve_statistics(self, key: str, channel_code: str, start: datetime, end: datetime,
                             max_points: Optional[int] = None, bucket_ms: Optional[int] = None,
-                            unit_system: Optional[str] = None) -> dict:
+                            unit_system: Optional[str] = None) -> StatisticsModel:
         def iso(moment: datetime) -> str:
             if moment.tzinfo is None:
                 moment = moment.replace(tzinfo=timezone.utc)
@@ -133,7 +134,8 @@ class InMotionDataStreamImpl(InMotionDataStream):
         return request_json('GET', f"{self._ds_path}/data/{key}/{channel_code}/statistics/{iso(start)}/{iso(end)}{query}",
                              self._session.build_headers(content=''),
                              '',
-                             'Failed to retrieve statistics')
+                             'Failed to retrieve statistics',
+                             StatisticsModel)
 
     def update_hyperslab_record_data(self, key: str, channel_code: str, data: dict) -> dict:
         data_str = stringify(data)
@@ -180,6 +182,13 @@ class InMotionDataStreamImpl(InMotionDataStream):
                              self._session.build_headers(content=signed_content),
                              data,
                              'Failed to update invariant blob data',
+                             DataStreamInvariantBlobMetadataModel)
+
+    def register_invariant_blob_data(self, key: str, channel_code: str, profile: str, data_uuid: str) -> DataStreamInvariantBlobMetadataModel:
+        return request_json('PUT', f"{self._ds_path}/blob/{key}/{channel_code}/static/{profile}/register?{urlencode({'dataUuid': data_uuid})}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to register invariant blob data',
                              DataStreamInvariantBlobMetadataModel)
 
     def find_blob_record_data(self, key: str, channel_code: str, start: datetime, end: datetime, profile: str) -> dict[str, DataStreamRecordsBlobMetadataModel]:

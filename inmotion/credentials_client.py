@@ -1,4 +1,3 @@
-import marshmallow_dataclass
 
 from inmotion.accounts import InMotionAccountsImpl
 from inmotion.activities import InMotionActivitiesImpl
@@ -8,7 +7,7 @@ from inmotion.audit import InMotionAuditImpl
 from inmotion.datastream import InMotionDataStreamImpl
 from inmotion.devkey import InMotionDevKeysImpl
 from inmotion.event import InMotionEventsImpl
-from inmotion.exceptions import InMotionAuthenticationError, InMotionMfaRequiredError
+from inmotion.exceptions import InMotionAuthenticationError, InMotionError, InMotionMfaRequiredError
 from inmotion.folio import InMotionFolioImpl
 from inmotion.model import InMotionModelImpl
 from inmotion.mqtt_deployment import InMotionMqttDeploymentImpl
@@ -34,10 +33,10 @@ from inmotion import (
     InMotionUpload,
     InMotionUser,
 )
-from inmotion.models import AuthenticationSessionModel, MfaChallengeModel, MfaResendResultModel, MfaSwitchMethodRequestModel
+from inmotion.models import AccountDetailsModel, AccountRegistrationModel, AuthenticationSessionModel, StatusMessageModel, MfaChallengeModel, MfaResendResultModel, MfaSwitchMethodRequestModel
 from inmotion.upload import InMotionUploadImpl
 from inmotion.user import InMotionUserImpl
-from inmotion.utils import build_im_headers, request_json, stringify
+from inmotion.utils import build_im_headers, request_json, response_schema, stringify
 
 INMOTION_API_VERSION = '2.0.0'
 
@@ -54,8 +53,24 @@ class InMotionCredentialsSession(InMotionSession):
         self._dev_secret = dev_secret
 
     def disconnect(self) -> None:
+        """ Log out, which invalidates the token on the server. The session is closed locally even
+        when the server cannot be reached. """
         if self._is_connected:
             self._is_connected = False
+            try:
+                request_json('GET', f"{self._base_url}/api/latest/authenticate/logout",
+                             build_im_headers(
+                                 dev_key=self._dev_key,
+                                 dev_secret=self._dev_secret,
+                                 content='',
+                                 extra_name='X-Auth-Token',
+                                 extra_value=self._token,
+                             ),
+                             '',
+                             'Failed to log out',
+                             StatusMessageModel)
+            except InMotionError:
+                pass
 
     def activities(self) -> InMotionActivities:
         return InMotionActivitiesImpl(self)
@@ -160,7 +175,48 @@ class InMotionCredentialsClient(object):
                                             method=raw['method'],
                                             expires_in_seconds=raw['expiresInSeconds'])
 
-        capabilities = marshmallow_dataclass.class_schema(AuthenticationSessionModel)().load(raw)
+        capabilities = response_schema(AuthenticationSessionModel)().load(raw)
+        return self._session_from_capabilities(account, capabilities)
+
+    def register_account(self, registration: AccountRegistrationModel) -> AccountDetailsModel:
+        """
+         Register a new account together with its owner. No session is needed. When the result's
+         `mfaEnrollment` is set the owner must enroll in MFA before getting a session: use
+         `mfaEnrollment.enrollToken` with complete_mfa_enrollment, or skip_mfa_enrollment when
+         `mfaEnrollment.mandatory` is false.
+        """
+        details = stringify(registration)
+        return request_json('POST', self._base_url + "/api/latest/account",
+                             build_im_headers(
+                                 dev_key=self._dev_key,
+                                 dev_secret=self._dev_secret,
+                                 content=details
+                             ),
+                             details,
+                             'Failed to register account',
+                             AccountDetailsModel)
+
+    def complete_mfa_enrollment(self, account: str, enroll_token: str) -> InMotionCredentialsSession:
+        """ Exchange an enrollment token, once the owner has enrolled in MFA, for a full session. """
+        return self._finish_mfa_enrollment(account, enroll_token, 'complete')
+
+    def skip_mfa_enrollment(self, account: str, enroll_token: str) -> InMotionCredentialsSession:
+        """ Exchange an enrollment token for a full session without enrolling. The server refuses
+        when enrollment is mandatory. """
+        return self._finish_mfa_enrollment(account, enroll_token, 'skip')
+
+    def _finish_mfa_enrollment(self, account: str, enroll_token: str, step: str) -> InMotionCredentialsSession:
+        capabilities = request_json('POST', f"{self._base_url}/api/latest/authenticate/enrollment/{step}",
+                                     build_im_headers(
+                                         dev_key=self._dev_key,
+                                         dev_secret=self._dev_secret,
+                                         content='',
+                                         extra_name='X-Auth-Token',
+                                         extra_value=enroll_token,
+                                     ),
+                                     '',
+                                     f'Failed to {step} MFA enrollment',
+                                     AuthenticationSessionModel)
         return self._session_from_capabilities(account, capabilities)
 
     def verify_mfa(self, account: str, mfa_token: str, code: str) -> InMotionCredentialsSession:

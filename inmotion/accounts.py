@@ -10,6 +10,7 @@ from inmotion.models import (
     AccountUpdateBatchCommandModel,
     AccountUpdateBatchResultsModel,
     AccountUserSummaryModel,
+    StatusMessageModel,
     AccountUserUnregisteredModel,
     AddAccountMemberRequestModel,
     DeviceConfigSyncRequestModel,
@@ -92,6 +93,13 @@ class InMotionAccountsImpl(InMotionAccounts):
                              account_data,
                              'Failed to create account',
                              AccountDetailsModel)
+
+    def request_account_data(self, account_key: str) -> StatusMessageModel:
+        return request_json('POST', f"{self._prefix_path}/account/data-request/{account_key}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to request account data',
+                             StatusMessageModel)
 
     def mark_account_for_deletion(self, account_key: str, and_user: bool) -> AccountMarkedForDeletionModel:
         and_user_segment = 'true' if and_user else 'false'

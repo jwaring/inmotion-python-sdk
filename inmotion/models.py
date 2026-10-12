@@ -367,6 +367,16 @@ class AccountSummaryModel:
         return datetime.fromtimestamp(self.lastUpdated / 1000.0)
 
 @dataclass
+class MfaEnrollmentRequiredModel:
+    """ Carried on AccountDetailsModel.mfaEnrollment when a new signup must enroll in MFA before
+    it gets a session. `enrollToken` is sent as the `X-Auth-Token` header to the MFA enrollment
+    calls and finally to complete/skip enrollment, which exchange it for a full session. """
+    enrollToken: str
+    mfaPending: bool
+    mandatory: bool
+    expiresInSeconds: int
+
+@dataclass
 class AccountDetailsModel:
     key: str
     name: str
@@ -382,6 +392,7 @@ class AccountDetailsModel:
     joined: int
     expiration: Optional[int]
     lastUpdated: int
+    mfaEnrollment: Optional[MfaEnrollmentRequiredModel] = None
 
     def token_renewal_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.tokenRenewalDate / 1000.0)
@@ -456,9 +467,10 @@ class UserRegistrationModel:
     attrs: dict[str, AttrKindValueModel]
     licenseAccepted: int
     publicUserName: bool
-    firstName: Optional[str]
-    lastName: Optional[str]
-    avatarUrl: Optional[str]
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    avatarUrl: Optional[str] = None
+    preferredUnitSystem: Optional[str] = None
 
     def license_accepted_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.licenseAccepted / 1000.0)
@@ -2528,3 +2540,49 @@ class AddAccountMemberRequestModel:
     privileges: AccountPrivilegesModel
     consent: bool
     message: Optional[str] = None
+
+
+@dataclass
+class StatisticsResolutionModel:
+    bucketMs: int
+    level: int
+    exact: bool
+
+@dataclass
+class StatisticsMeasureModel:
+    name: str
+    role: str
+    exact: bool
+    derived: bool
+
+@dataclass
+class StatisticsVariableModel:
+    """ One variable's roll-up as columns aligned with StatisticsModel.times. A bucket with no
+    accepted readings has `n` 0 and None measures, never zero. """
+    name: str
+    units: str
+    behaviour: str
+    measures: list[StatisticsMeasureModel]
+    values: dict[str, list[Optional[float]]]
+    stdDataType: Optional[str] = None
+
+@dataclass
+class StatisticsModel:
+    """ Roll-up statistics for a window of a data channel. When `available` is false no roll-up
+    covers the request, the arrays are empty, and the raw records should be read instead. """
+    key: str
+    channelCode: str
+    start: int = field(metadata={"data_key": "from"})
+    to: int
+    available: bool
+    resolution: StatisticsResolutionModel
+    truncated: bool
+    totalBuckets: int
+    times: list[int]
+    variables: list[StatisticsVariableModel]
+
+    def variable(self, name: str) -> Optional[StatisticsVariableModel]:
+        return next((v for v in self.variables if v.name == name), None)
+
+    def times_datetime(self) -> list[datetime]:
+        return [datetime.fromtimestamp(t / 1000.0) for t in self.times]

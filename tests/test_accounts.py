@@ -328,3 +328,17 @@ def test_find_account_activity_master_data_issues_a_get():
         impl.find_account_activity_master_data("acct1")
 
     assert mock_request_json.call_args.args[:2] == ("GET", "http://example.test/api/v2/account/acct1/activity/master-data")
+
+
+def test_request_account_data_posts_to_the_data_request_route():
+    from unittest.mock import MagicMock, patch
+    from inmotion.accounts import InMotionAccountsImpl
+    session = MagicMock()
+    session.base_url = "http://example.test"
+    session.api_path = "/api/v2"
+    session.build_headers.return_value = {}
+    with patch("inmotion.accounts.request_json", return_value=MagicMock()) as mock_request_json:
+        InMotionAccountsImpl(session).request_account_data("acct1")
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/data-request/acct1"

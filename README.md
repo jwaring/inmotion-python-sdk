@@ -57,14 +57,52 @@ session = client.get_session(account="...", username="...", password="...")
 ```
 
 Once you have a `session`, it exposes the feature areas documented below, e.g.
-`session.activities()`, `session.accounts()`, `session.folio()`.
+`session.activities()`, `session.accounts()`, `session.folio()`. Call `session.disconnect()` when
+done: it logs out, which invalidates the token on the server.
+
+The response models ignore fields the SDK does not know, so a server that adds a field does not
+break an older client.
+
+### Multi-factor authentication
+
+When the account has MFA enabled, `get_session` raises `InMotionMfaRequiredError`:
+
+```python
+from inmotion.exceptions import InMotionMfaRequiredError
+
+try:
+    session = client.get_session(account, username, password)
+except InMotionMfaRequiredError as challenge:
+    session = client.verify_mfa(account, challenge.mfa_token, input("Code: "))
+```
+
+`resend_mfa(mfa_token)` regenerates an email/SMS code, and `switch_mfa_method(mfa_token, method)`
+moves the challenge to another enrolled method.
+
+### Registering an account
+
+`register_account` creates an account and its owner without a session. When the result's
+`mfaEnrollment` is set, the owner must enroll in MFA before getting a session: enroll using the
+`/user/mfa` calls with `mfaEnrollment.enrollToken` as the token, then
+`client.complete_mfa_enrollment(account, token)`. If `mfaEnrollment.mandatory` is false,
+`client.skip_mfa_enrollment(account, token)` goes straight to a session.
+
+```python
+details = client.register_account(AccountRegistrationModel(
+    owner=UserRegistrationModel(userKey="jdoe", userName="jdoe", password="...", displayName="J Doe",
+                                email="jdoe@example.com", attrs={}, licenseAccepted=now_millis,
+                                publicUserName=False),
+    name="Acme", address=None, accountType=AccountType.FREE_PERSONAL, profiles=[], attrs={}))
+```
 
 # Examples
 
-`examples/` has two small, self-contained scripts demonstrating the Site and Track activity APIs:
+`examples/` has small, self-contained scripts demonstrating the Site and Track activity APIs and roll-up statistics:
 
 - `site_timeseries_example.py` — generates a synthetic weather-sensor CSV (temperature + humidity),
   then reads it back and uploads it as a Site activity timeseries.
+- `site_statistics_example.py` — reads a data stream's roll-up statistics for a window and prints
+  each variable's coverage, mean and range.
 - `track_timeseries_example.py` — generates a synthetic vehicle-track CSV (lat/lon/altitude +
   speed), then reads it back and uploads it as a Track activity timeseries.
 
@@ -141,6 +179,7 @@ accounts = session.accounts()
 
 account = accounts.find_account(account_key)
 tags = accounts.find_account_tags(account_key)
+accounts.request_account_data(account_key)  # emails a copy of the account's data to its owner
 accounts.update_account(account_key, AccountModel(name="Acme", address=None, accountType="1", attrs={}, profiles=[]))
 
 users = accounts.find_account_users(account_key)
@@ -427,10 +466,18 @@ ds_api.update_invariant_hyperslab_data(ds.key, "temperature", {"units": "celsius
 ds_api.update_hyperslab_record_data(ds.key, "temperature", {"timeUtc": [...], "value": [...]})
 ds_api.find_hyperslab_record_data(ds.key, "temperature", start, end)
 
+# Roll-up statistics: a window as a few hundred buckets of count, mean and spread
+stats = ds_api.retrieve_statistics(ds.key, "AA", start, end, max_points=300)
+if stats.available:                       # false when no roll-up covers the window
+    temperature = stats.variable("airTemperature")
+    for when, n, mean in zip(stats.times_datetime(), temperature.values["n"], temperature.values["mean"]):
+        ...                               # a bucket with no readings has n 0 and mean None
+
 # Blob (byte-oriented) channels
 ds_api.create_blob_channel(ds.key, DataChannelCreatorModel(
     channelType="image", profiles={}, unlimitedDim=None, fixedDims={}, vars={}, created=0))
 ds_api.update_invariant_blob_data(ds.key, "image", "raw", image_bytes)
+ds_api.register_invariant_blob_data(ds.key, "image", "raw", data_uuid)  # data already uploaded
 ds_api.find_latest_blob_record_data(ds.key, "image", "raw")
 raw_bytes = ds_api.open_blob_stream(ds.key, blob_key)
 
