@@ -109,12 +109,12 @@ class InMotionAccountsImpl(InMotionAccounts):
                              'Failed to mark account for deletion',
                              AccountMarkedForDeletionModel)
 
-    def find_my_accounts(self) -> dict[str, UserAccountSummaryModel]:
-        return request_json_map('GET', f"{self._prefix_path}/accounts",
-                                 self._session.build_headers(content=''),
-                                 '',
-                                 'Failed to retrieve accounts',
-                                 UserAccountSummaryModel)
+    def find_my_accounts(self) -> list[UserAccountSummaryModel]:
+        return request_json('GET', f"{self._prefix_path}/accounts",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve accounts',
+                             UserAccountSummaryModel, many=True)
 
     def fetch_global_device_configs(self) -> dict:
         return request_json('GET', f"{self._prefix_path}/device-config",

@@ -9,20 +9,23 @@ from datetime import datetime
 from typing import Any, Optional
 
 class AccountType:
-    FREE_PERSONAL = "I"
-    FREE_OSS = "O"
-    CONSUMER_STANDARD = "1"
-    CONSUMER_PREMIUM = "2"
-    ENTERPRISE_MINIMAL = "M"
-    ENTERPRISE_STANDARD = "S"
-    ENTERPRISE_PREMIUM = "P"
-    ENTERPRISE_UNLIMITED = "U"
+    """ The account types, as the API names them on the wire. """
+    FREE_PERSONAL = "FREE_PERSONAL"
+    FREE_GRANDFATHERED = "FREE_GRANDFATHERED"
+    FREE_OSS = "FREE_OSS"
+    CONSUMER_STANDARD = "CONSUMER_STANDARD"
+    CONSUMER_PREMIUM = "CONSUMER_PREMIUM"
+    ENTERPRISE_MINIMAL = "ENTERPRISE_MINIMAL"
+    ENTERPRISE_STANDARD = "ENTERPRISE_STANDARD"
+    ENTERPRISE_PREMIUM = "ENTERPRISE_PREMIUM"
+    ENTERPRISE_UNLIMITED = "ENTERPRISE_UNLIMITED"
 
 class AccountStatus:
-    ACTIVE = "A"
-    CANCELLED = "C"
-    EXPIRED = "E"
-    SUSPENDED = "S"
+    """ The account statuses, as the API names them on the wire. """
+    ACTIVE = "ACTIVE"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
+    SUSPENDED = "SUSPENDED"
 
 class DataKind:
     BYTE = "B"
@@ -347,9 +350,9 @@ class AccountModel:
 class AccountSummaryModel:
     key: str
     name: str
-    status: AccountStatus
+    status: str
     address: Optional[AddressModel]
-    accountType: AccountType
+    accountType: str
     features: list[str]
     tokenRemaining: int
     tokenRenewalDate: int
@@ -380,9 +383,9 @@ class MfaEnrollmentRequiredModel:
 class AccountDetailsModel:
     key: str
     name: str
-    status: AccountStatus
+    status: str
     address: Optional[AddressModel]
-    accountType: AccountType
+    accountType: str
     features: list[str]
     attrs: dict[str, AttrKindValueModel]
     profiles: list[str]
@@ -480,7 +483,7 @@ class AccountRegistrationModel:
     owner: UserRegistrationModel
     name: str
     address: Optional[AddressModel]
-    accountType: AccountType
+    accountType: str
     profiles: list[str]
     attrs: dict[str, AttrKindValueModel]
 
@@ -648,9 +651,9 @@ class MqttDeploymentUpdateModel:
 class UserAccountSummaryModel:
     key: str
     name: str
-    status: AccountStatus
+    status: str
     address: Optional[AddressModel]
-    accountType: AccountType
+    accountType: str
     features: list[str]
     tokenRemaining: int
     tokenRenewalDate: int

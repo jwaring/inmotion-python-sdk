@@ -791,11 +791,11 @@ class InMotionAccounts(ABC):
         pass
 
     @abstractmethod
-    def find_my_accounts(self) -> dict[str, UserAccountSummaryModel]:
+    def find_my_accounts(self) -> list[UserAccountSummaryModel]:
         """ Fetch the accounts associated with the authenticated user
 
-        :return: A map of account key to the caller's summary of that account
-        :rtype: dict[str, UserAccountSummaryModel]
+        :return: The caller's summary of each account
+        :rtype: list[UserAccountSummaryModel]
         """
         pass
 

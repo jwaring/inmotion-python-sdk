@@ -136,15 +136,16 @@ def test_mark_account_for_deletion_issues_a_delete_with_stringified_bool():
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/delete/acct1/false"
 
 
-def test_find_my_accounts_uses_root_level_path_and_map():
+def test_find_my_accounts_uses_root_level_path_and_list():
     session = _fake_session()
     impl = InMotionAccountsImpl(session)
 
-    with patch("inmotion.accounts.request_json_map", return_value={}) as mock_request_json_map:
+    with patch("inmotion.accounts.request_json", return_value=[]) as mock_request_json:
         impl.find_my_accounts()
 
-    assert mock_request_json_map.call_args.args[0] == "GET"
-    assert mock_request_json_map.call_args.args[1] == "http://example.test/api/v2/accounts"
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/accounts"
+    assert mock_request_json.call_args.kwargs["many"] is True
 
 
 def test_fetch_global_device_configs_issues_a_get():

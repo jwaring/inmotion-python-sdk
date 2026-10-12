@@ -180,7 +180,7 @@ accounts = session.accounts()
 account = accounts.find_account(account_key)
 tags = accounts.find_account_tags(account_key)
 accounts.request_account_data(account_key)  # emails a copy of the account's data to its owner
-accounts.update_account(account_key, AccountModel(name="Acme", address=None, accountType="1", attrs={}, profiles=[]))
+accounts.update_account(account_key, AccountModel(name="Acme", address=None, accountType=AccountType.CONSUMER_STANDARD, attrs={}, profiles=[]))
 
 users = accounts.find_account_users(account_key)
 accounts.register_account_user(account_key, user_key, privileges)
