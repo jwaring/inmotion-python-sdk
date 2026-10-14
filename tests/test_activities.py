@@ -145,11 +145,11 @@ def test_finish_track_activity_issues_a_put():
     session = _fake_session()
     impl = InMotionActivitiesImpl(session)
 
-    with patch("inmotion.activities.request_json", return_value=None) as mock_request_json:
+    with patch("inmotion.activities.request_raw", return_value=b"") as mock_request_raw:
         impl.finish_track_activity("trk1")
 
-    assert mock_request_json.call_args.args[0] == "PUT"
-    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activity/track/finish/trk1"
+    assert mock_request_raw.call_args.args[0] == "PUT"
+    assert mock_request_raw.call_args.args[1] == "http://example.test/api/v2/activity/track/finish/trk1"
 
 
 def test_share_and_unshare_track_activity():

@@ -150,7 +150,7 @@ class InMotionActivitiesImpl(InMotionActivities):
                      'Failed to delete track activity')
 
     def finish_track_activity(self, track_key: str) -> None:
-        request_json('PUT', f"{self._prefix_path}/activity/track/finish/{track_key}",
+        request_raw('PUT', f"{self._prefix_path}/activity/track/finish/{track_key}",
                      self._session.build_headers(content=''),
                      '',
                      'Failed to finish track activity')
