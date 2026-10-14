@@ -1793,6 +1793,7 @@ class ActivitiesModel:
 class CreateTrackActivityModel:
     activity: ActivityModel
     recordInterval: int
+    uploadState: Optional[str] = None
 
 @dataclass
 class UpdateTrackActivityModel:

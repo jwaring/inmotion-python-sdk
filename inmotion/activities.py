@@ -113,10 +113,13 @@ class InMotionActivitiesImpl(InMotionActivities):
                              ActivityBatchResultModel, many=True)
 
     def create_track_activity(self, ctam: CreateTrackActivityModel) -> ActivityUpdateResponseModel:
-        site_data = stringify({
+        body = {
             "recordInterval": ctam.recordInterval,
             "activity": asdict(ctam.activity)
-        })
+        }
+        if ctam.uploadState is not None:
+            body["uploadState"] = ctam.uploadState
+        site_data = stringify(body)
         return request_json('POST', f"{self._prefix_path}/activity/track",
                              self._session.build_headers(content=site_data),
                              site_data,
@@ -145,6 +148,12 @@ class InMotionActivitiesImpl(InMotionActivities):
                      self._session.build_headers(content=''),
                      '',
                      'Failed to delete track activity')
+
+    def finish_track_activity(self, track_key: str) -> None:
+        request_json('PUT', f"{self._prefix_path}/activity/track/finish/{track_key}",
+                     self._session.build_headers(content=''),
+                     '',
+                     'Failed to finish track activity')
 
     def unlock_track_activity(self, track_key: str) -> None:
         request_json('PUT', f"{self._prefix_path}/activity/track/unlock/{track_key}",

@@ -264,6 +264,14 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
+    def finish_track_activity(self, track_key: str) -> None:
+        """ Make a track that was created with ``uploadState="uploading"`` visible, once all its records are sent
+
+        :param str track_key: The unique key of the track activity to finish
+        """
+        pass
+
+    @abstractmethod
     def unlock_track_activity(self, track_key: str) -> None:
         """ Unlock a track activity so that it can be modified or updated
 
