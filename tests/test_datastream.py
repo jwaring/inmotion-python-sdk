@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from inmotion.datastream import InMotionDataStreamImpl
 from inmotion.models import DataChannelCreatorModel, DataStreamCreatorModel, DataStreamFilterModel
+from inmotion.utils import stringify
 
 
 def _fake_session():
@@ -342,3 +343,15 @@ def test_register_invariant_blob_data_puts_the_data_uuid():
 
     assert mock_request_json.call_args.args[0] == "PUT"
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/data-stream/blob/k1/BL/static/main/register?dataUuid=uuid-1"
+
+
+def test_data_stream_creator_carries_copyright_and_licence():
+    creator = _ds_creator()
+    assert creator.copyright is None and creator.licence is None
+
+    creator.copyright = "GEBCO Compilation Group (2026)"
+    creator.licence = "CC-BY-4.0"
+    body = stringify(creator)
+
+    assert '"copyright":"GEBCO Compilation Group (2026)"' in body
+    assert '"licence":"CC-BY-4.0"' in body

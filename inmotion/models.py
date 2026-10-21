@@ -881,6 +881,8 @@ class DataStreamCreatorModel:
     attrs: dict[str, AttrKindValueModel]
     created: int
     appKey: Optional[str] = None
+    copyright: Optional[str] = None
+    licence: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
@@ -903,6 +905,8 @@ class DataStreamModel:
     dataChannels: dict[str, DataChannelModel]
     created: int
     appKey: Optional[str] = None
+    copyright: Optional[str] = None
+    licence: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
