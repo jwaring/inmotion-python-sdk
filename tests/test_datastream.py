@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from inmotion.datastream import InMotionDataStreamImpl
-from inmotion.models import DataChannelCreatorModel, DataStreamCreatorModel, DataStreamFilterModel
+from inmotion.models import ActivityModel, DataChannelCreatorModel, DataStreamCreatorModel, DataStreamFilterModel
 from inmotion.utils import stringify
 
 
@@ -355,3 +355,14 @@ def test_data_stream_creator_carries_copyright_and_licence():
 
     assert '"copyright":"GEBCO Compilation Group (2026)"' in body
     assert '"licence":"CC-BY-4.0"' in body
+
+
+def test_activity_carries_copyright_and_licence():
+    activity = ActivityModel(
+        account="a", actType="T", name="n", comment="", tags=[], sourceIdentifier="s", sourceCategory="c",
+        sourceName="sn", acqConv="O", created=0, datum="WGS84", timezone="UTC", sensors=[], attrs={},
+        copyright="CSIRO", licence="CC-BY-4.0",
+    )
+    body = stringify(activity)
+
+    assert '"copyright":"CSIRO"' in body and '"licence":"CC-BY-4.0"' in body

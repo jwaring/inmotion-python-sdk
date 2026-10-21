@@ -1484,6 +1484,8 @@ class ActivityModel:
     timezone: str
     sensors: list[SensorModel]
     attrs: dict[str, AttributeValueModel]
+    copyright: Optional[str] = None
+    licence: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
