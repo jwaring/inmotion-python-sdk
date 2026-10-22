@@ -20,3 +20,27 @@
     --def: #609A30;
     --annotation: #609A30;
 }
+
+/* Dark: follows the Appearance choice shared with inmotion.io (see module.html.jinja2),
+   else the system setting. */
+:root[data-theme="dark"] {
+    --pdoc-background: #141713;
+    color-scheme: dark;
+}
+
+[data-theme="dark"] .pdoc {
+    --text: #e3e7dc;
+    --muted: #9aa392;
+    --link: #8cc05a;
+    --link-hover: #a8d67a;
+    --code: #1c211a;
+    --active: #3b4a28;
+
+    --accent: #232a1f;
+    --accent2: #4a5444;
+
+    --nav-hover: rgba(255, 255, 255, 0.06);
+    --name: #8cc05a;
+    --def: #a8d67a;
+    --annotation: #8cc05a;
+}
