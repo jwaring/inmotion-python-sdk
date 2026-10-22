@@ -130,6 +130,10 @@ required to call them, but double-check any code that was working around the pre
 `InMotionAPIKeyClient`, and now authenticates against the current `/api/latest/authenticate`
 endpoint rather than the deprecated `/api/authenticate`.
 
+`session.raster_overlay()` and `InMotionRasterOverlay` have been removed in 0.3.0. The server no longer has
+a `/raster-overlay` API, so every call would have failed. Gridded and raster data are now Datasets, read with
+`session.datasets()` (see "Datasets" below), and found with `session.explorer()`.
+
 ## Track and Site Activities
 
 In addition to create/update/find/records, the activities interface now supports the full
@@ -373,26 +377,97 @@ A track activity's GPS records can also be converted into a standalone Route sha
 "track-to-shape" account feature) via `session.activities().convert_track_to_route(track_key)`,
 which returns the new shape's key.
 
-## Raster Overlays
+## Datasets
 
-`session.raster_overlay()` manages WMS-served raster/gridded imagery shown alongside vector
-shapes in the Shape Editor. There is no create/upload method — rasters are registered by a
-separate import tool. Access needs the SHAPE_EDITOR account feature, and tile rendering is
-additionally gated by the server's `inmotion.wms.enabled` kill-switch (off in some deployments).
+`session.datasets()` reads gridded data such as model output, satellite imagery and drone imagery. A dataset
+is a data stream with a mapping that says how its file is laid out, so it has a description (dimensions,
+coordinate sets and variables) and is read as tiles and slices of values, as samples at places and times, and
+with a display config that says how it is first shown. Times are ISO 8601 instants such as
+`2025-02-10T02:00:00Z`; a variable that does not vary with time takes no `time`, and one that does needs it.
 
 ```python
-raster_api = session.raster_overlay()
+ds_api = session.datasets()
 
-raster_api.find_raster_overlays(account_key)
-overlay = raster_api.find_raster_overlay(key)
-raster_api.update_raster_overlay_style(key, RasterOverlayStyleUpdateModel(rampName="viridis", alpha=0.8))
-raster_api.delete_raster_overlay(key)
+for d in ds_api.find_datasets(account_key):
+    print(d.key, d.name, d.kind)
 
-# Render a GetMap PNG tile. `render_map` is not header-authenticated: it takes a short-lived
-# `mapToken` re-minted on every find/update call above (it expires ~30 min after issue).
-png = raster_api.render_map(key, bbox=(minX, minY, maxX, maxY), width=512, height=512,
-                            token=overlay.mapToken)
+description = ds_api.find_dataset_description(key)
+variable = description.variables[0]          # name, sdt, units, dims, coords, extent
+
+# Values of a variable, parsed from the API's hyperslab format
+tile = ds_api.find_dataset_tile(key, variable.name, z=4, x=13, y=8, time="2025-02-10T02:00:00Z")
+rows = tile.grid(variable.name)             # a list of rows; use `tile.variables[...].unpack(v)` for real values
+window = ds_api.find_dataset_slice(key, variable.name, time="2025-02-10T02:00:00Z", start="0,0", count="100,100")
+
+# The range colours run between where none is chosen (2nd to 98th percentile over the extent)
+r = ds_api.find_dataset_range(key, variable.name, time="2025-02-10T02:00:00Z")
 ```
+
+Sample a variable at places and times, such as those of a Site or a Track. Point values are interpolated across
+the cell and between the two records either side of the time, with no extrapolation. Give an `observed` value
+with a position to get the comparison of the dataset with the observations:
+
+```python
+result = ds_api.sample_dataset(key, DatasetSampleRequestModel(
+    variable="temp", level=0,
+    positions=[DatasetSamplePositionModel(longitude=115.5, latitude=-32.0, time="2004-02-01T00:00:00Z", observed=21.8),
+               DatasetSamplePositionModel(longitude=115.6, latitude=-32.1, time="2004-02-01T06:00:00Z", observed=21.4)]))
+for s in result.samples:
+    print(s.value if s.value is not None else s.reason)   # reason: outside, no data or masked
+print(result.comparison.bias, result.comparison.rootMeanSquareError, result.comparison.correlation)
+```
+
+A request over the cost limit is refused with an error that gives the largest window or batch that is allowed;
+it is never truncated.
+
+How a dataset is first shown is its display config. It is replaced with YAML (or JSON) text, with keys such as
+`fill_mode` (`image`, `bands`, `composite` or `ndvi`) and `axis_range`, and refused with each thing wrong at its
+path if it does not agree with the mapping:
+
+```python
+ds_api.update_dataset_display(key, """
+view:
+  variable: band_5
+  fill_mode: ndvi
+  ndvi: { nir: band_5, red: band_3 }
+""")
+display = ds_api.find_dataset_display(key)    # display.view.fillMode == "ndvi"
+```
+
+A mapping is replaced the same way with `update_dataset_mapping(key, yaml_text)`, name, comment, tags, copyright
+and licence with `update_dataset_properties`, and the files of a dataset's set are listed with
+`find_dataset_members` and checked against their registered size and SHA-256 with `verify_dataset_members`.
+`find_dataset_edges` gives the cell edges that cross a tile, to draw a grid.
+
+Gridded data is also served to GIS clients such as QGIS as WMS and WMTS layers, on an account with the
+`wms-serving` feature; see the inMotion documentation.
+
+## Explorer
+
+`session.explorer()` searches the Tracks, Sites, shapes, rasters and grids of every account you can read, by kind,
+category, place, time or text. Leaving `scope` out looks in every account you can access whose subscription
+includes Explore. A place is an `ExplorerBBoxModel` in degrees (a region over the antimeridian has `east` past
+180) and times are milliseconds since the epoch.
+
+```python
+explorer = session.explorer()
+
+page = explorer.find_catalog(kinds=["track", "site"],
+                             bbox=ExplorerBBoxModel(west=110.6, south=-34.5, east=115.8, north=-26.1),
+                             time_from=1041379200000, time_to=1072915200000, limit=100)
+for layer in page.layers:
+    print(layer.kind, layer.label, layer.time_from_datetime(), layer.time_to_datetime())
+print(page.total, page.facets["kind"])        # counts by kind, category and profile
+if page.capped:
+    more = explorer.find_catalog(kinds=["track", "site"], cursor=page.nextCursor)
+
+cells = explorer.find_clusters(cell=1.0, kinds=["site"])          # layers grouped into a grid
+profile = explorer.find_time_profile(buckets=60, kinds=["track"])  # how many end in each slice of time
+```
+
+Together these find the records a dataset can be compared with: search the catalog within a dataset's extent
+and time, read a Track's or Site's records with `session.activities()`, then pass their places, times and values
+to `sample_dataset`.
 
 ## MQTT Ingestion Deployments
 

@@ -5,7 +5,7 @@ via a wildcard import, so each module's dependencies stay visible at a glance.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 class AccountType:
@@ -2295,76 +2295,6 @@ class SetModelFieldValueRequestModel:
     value: Optional[str] = None
 
 @dataclass
-class RasterOverlayBoundsModel:
-    """ The raster's full extent in WGS84 lon/lat, straight off the file's own georeferencing. """
-    minLon: float
-    minLat: float
-    maxLon: float
-    maxLat: float
-    epsgCode: str
-
-@dataclass
-class RasterOverlaySummaryModel:
-    key: str
-    accountKey: str
-    name: str
-    wmsLayer: str
-    created: int
-    lastUpdated: int
-    tags: list[str] = field(default_factory=list)
-    rampName: Optional[str] = None
-    valueLower: Optional[float] = None
-    valueUpper: Optional[float] = None
-    invert: Optional[bool] = None
-    alpha: Optional[float] = None
-    transparentOutOfRange: Optional[bool] = None
-
-    def created_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.created / 1000.0)
-
-    def last_updated_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
-
-@dataclass
-class RasterOverlayDetailsModel:
-    key: str
-    accountKey: str
-    name: str
-    wmsLayer: str
-    mapToken: str
-    created: int
-    lastUpdated: int
-    comment: Optional[str] = None
-    tags: list[str] = field(default_factory=list)
-    rampName: Optional[str] = None
-    valueLower: Optional[float] = None
-    valueUpper: Optional[float] = None
-    invert: Optional[bool] = None
-    alpha: Optional[float] = None
-    transparentOutOfRange: Optional[bool] = None
-    bbox: Optional[RasterOverlayBoundsModel] = None
-
-    def created_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.created / 1000.0)
-
-    def last_updated_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.lastUpdated / 1000.0)
-
-@dataclass
-class RasterOverlayStyleUpdateModel:
-    """ Request body to update a RasterOverlay's editable metadata - style plus name/comment/tags
-    (creation is import-tool-only). Omitted fields are left untouched. """
-    name: Optional[str] = None
-    comment: Optional[str] = None
-    tags: list[str] = field(default_factory=list)
-    rampName: Optional[str] = None
-    valueLower: Optional[float] = None
-    valueUpper: Optional[float] = None
-    invert: Optional[bool] = None
-    alpha: Optional[float] = None
-    transparentOutOfRange: Optional[bool] = None
-
-@dataclass
 class ShapeGeneratorModel:
     """ Request body to create a Shape Generator. """
     name: str
@@ -2596,3 +2526,421 @@ class StatisticsModel:
 
     def times_datetime(self) -> list[datetime]:
         return [datetime.fromtimestamp(t / 1000.0) for t in self.times]
+
+
+def _utc(ms: int) -> datetime:
+    """ A time on the wire, in milliseconds since the epoch, as an aware UTC datetime. """
+    return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Datasets: gridded data (model output, satellite imagery, drone imagery) held as a data stream with a mapping.
+# Times are milliseconds since the epoch, as everywhere on the wire.
+# ---------------------------------------------------------------------------------------------------------------------
+
+@dataclass
+class DatasetListingModel:
+    """ A data stream that holds a dataset. `kind` is `grid` or `mesh`. """
+    key: str
+    name: str
+    description: str
+    accountKey: str
+    category: str
+    tags: list[str]
+    copyright: Optional[str] = None
+    licence: Optional[str] = None
+    kind: str = "grid"
+
+@dataclass
+class DatasetPropertiesModel:
+    """ The name, comment and tags of a dataset, as a person edits them. """
+    name: str
+    comment: str
+    tags: list[str]
+    copyright: Optional[str] = None
+    licence: Optional[str] = None
+
+@dataclass
+class DatasetDimensionModel:
+    """ A dimension of the dataset's source. """
+    name: str
+    length: int
+    unlimited: bool
+
+@dataclass
+class DatasetExtentModel:
+    """ A box in a coordinate set's own units. """
+    minX: float
+    minY: float
+    maxX: float
+    maxY: float
+
+@dataclass
+class DatasetPositionsModel:
+    """ How a coordinate set's places are stored. `positions` is `regular`, `list`, `curvilinear`, `points` or
+    `graph`, and the fields that apply depend on it: `first`, `step` and `count` for regular, `first`, `last`,
+    `count` and `values` for list, `shape` and `extent` for curvilinear. """
+    positions: str
+    first: Optional[float] = None
+    last: Optional[float] = None
+    step: Optional[float] = None
+    count: Optional[int] = None
+    values: Optional[list[float]] = None
+    shape: Optional[list[int]] = None
+    extent: Optional[DatasetExtentModel] = None
+
+@dataclass
+class DatasetTimeModel:
+    """ The span of a time coordinate set. `eachValue` is `instant` or `period`, and `widthSeconds` is the width of a
+    period. `values` lists the time of each record, in milliseconds, when there are few enough to send. """
+    count: int
+    first: int
+    last: int
+    eachValue: str
+    widthSeconds: Optional[float] = None
+    values: Optional[list[int]] = None
+
+    def first_datetime(self) -> datetime:
+        return _utc(self.first)
+
+    def last_datetime(self) -> datetime:
+        return _utc(self.last)
+
+@dataclass
+class DatasetCoordinateModel:
+    """ A coordinate set. `roles` are `time`, `vertical`, `longitude`, `latitude`, `x` or `y`. """
+    name: str
+    roles: list[str]
+    dims: list[str]
+    positions: Optional[DatasetPositionsModel] = None
+    projection: Optional[str] = None
+    time: Optional[DatasetTimeModel] = None
+    unit: Optional[str] = None
+    positive: Optional[str] = None
+
+@dataclass
+class DatasetVariableModel:
+    """ A variable with its dimensions in storage order, their lengths and the coordinate sets that locate it.
+    `represents` is `point`, `average` or `constant`. A component of a vector names the components in `vector` and is
+    sampled as one by asking for the first. `sdt` is the Standard Data Type the variable records. """
+    name: str
+    represents: str
+    dims: list[str]
+    shape: list[int]
+    coords: list[str]
+    sdt: Optional[str] = None
+    units: Optional[str] = None
+    vector: Optional[list[str]] = None
+    title: Optional[str] = None
+    displayUnits: Optional[str] = None
+    precision: Optional[float] = None
+    extent: Optional[DatasetExtentModel] = None
+
+@dataclass
+class DatasetDescriptionModel:
+    """ What a dataset is: its dimensions, coordinate sets and variables. """
+    mappingVersion: int
+    dimensions: list[DatasetDimensionModel]
+    coordinates: list[DatasetCoordinateModel]
+    variables: list[DatasetVariableModel]
+
+@dataclass
+class DatasetMappingAppliedModel:
+    """ A stored mapping: its version in the stream's history and the description it gives the source. """
+    version: int
+    description: DatasetDescriptionModel
+
+@dataclass
+class DatasetSamplePositionModel:
+    """ A place and time to sample, with an observation there when a comparison is wanted. `time` is an ISO 8601
+    instant, left out for a variable that does not vary with time. A `depth` (positive down) or a `height` (positive
+    up), in the vertical reference of the dataset, selects among its layers. """
+    longitude: float
+    latitude: float
+    time: Optional[str] = None
+    observed: Optional[float] = None
+    depth: Optional[float] = None
+    height: Optional[float] = None
+
+@dataclass
+class DatasetSampleRequestModel:
+    """ Samples of one variable. `level` is the index along the vertical dimension, and `minValidWeight` asks to
+    renormalise over the valid neighbours when at least that fraction of the weight is valid. `neighbours` asks for the
+    nodes and weights each sample used. `vector` samples the vector whose first component is the variable. """
+    variable: str
+    positions: list[DatasetSamplePositionModel]
+    level: Optional[int] = None
+    minValidWeight: Optional[float] = None
+    neighbours: Optional[bool] = None
+    vector: Optional[bool] = None
+
+@dataclass
+class DatasetNeighbourModel:
+    """ A node of one record that contributed to a sample. """
+    record: int
+    node: list[int]
+    weight: float
+    missing: bool
+    level: Optional[int] = None
+
+@dataclass
+class DatasetSampleModel:
+    """ The value at a position, or `reason` (`outside`, `no data` or `masked`) when there is none. A vector sample has
+    its magnitude as the value, and `east` and `north` as its components. """
+    renormalised: bool
+    value: Optional[float] = None
+    reason: Optional[str] = None
+    east: Optional[float] = None
+    north: Optional[float] = None
+    neighbours: Optional[list[DatasetNeighbourModel]] = None
+
+@dataclass
+class DatasetComparisonModel:
+    """ How the samples compare with the observations given: the dataset minus the observation. `missing` counts the
+    observations with no value from the dataset by reason. """
+    paired: int
+    missing: dict[str, int]
+    bias: Optional[float] = None
+    meanAbsoluteError: Optional[float] = None
+    rootMeanSquareError: Optional[float] = None
+    correlation: Optional[float] = None
+
+@dataclass
+class DatasetSampleResultModel:
+    """ The samples in the order of the positions. `method` names how they were found, and `comparison` is given where
+    the positions carried observed values. """
+    variable: str
+    method: str
+    samples: list[DatasetSampleModel]
+    comparison: Optional[DatasetComparisonModel] = None
+
+@dataclass
+class DatasetRangeModel:
+    """ The range colours run between where none is chosen: the 2nd to the 98th percentile of the variable over the
+    dataset's extent. """
+    low: float
+    high: float
+
+@dataclass
+class DatasetEdgesModel:
+    """ The edges of the cells that cross a tile, each line as longitude and latitude in turn, or none and `tooMany`
+    where the tile holds too many nodes to draw. """
+    lines: list[list[float]]
+    tooMany: bool
+
+@dataclass
+class DatasetMemberModel:
+    """ A file of a set. `state` is `ok`, `changed` or `missing`, and `first` and `last` are its first and last stamps. """
+    name: str
+    size: int
+    sha256: str
+    state: str
+    stamps: int
+    first: int
+    last: int
+    registered: int
+
+    def first_datetime(self) -> datetime:
+        return _utc(self.first)
+
+    def last_datetime(self) -> datetime:
+        return _utc(self.last)
+
+    def registered_datetime(self) -> datetime:
+        return _utc(self.registered)
+
+@dataclass
+class DatasetGapModel:
+    """ A stretch of time that no member covers. """
+    from_: int = field(metadata=dict(data_key="from"))
+    to: int
+
+    def from_datetime(self) -> datetime:
+        return _utc(self.from_)
+
+    def to_datetime(self) -> datetime:
+        return _utc(self.to)
+
+@dataclass
+class DatasetSetModel:
+    """ The members of a set in order along time, the gaps between them, and `overlap`, the rule for members that share
+    time (`error`, `allowed`, `latest` or `all`). """
+    members: list[DatasetMemberModel]
+    gaps: list[DatasetGapModel]
+    overlap: str
+
+@dataclass
+class DatasetDisplayVariableModel:
+    """ How one variable is shown where that differs from the defaults of its data type. """
+    units: Optional[str] = None
+    axisRange: Optional[list[float]] = None
+    ramp: Optional[str] = None
+    scale: Optional[str] = None
+    pivot: Optional[float] = None
+    rampBelow: Optional[str] = None
+    clearBelow: Optional[bool] = None
+
+@dataclass
+class DatasetDisplayBoxModel:
+    """ Where a box of a box model sits on a schematic. """
+    x: float
+    y: float
+    label: Optional[str] = None
+
+@dataclass
+class DatasetDisplaySchematicModel:
+    boxes: dict[str, DatasetDisplayBoxModel]
+
+@dataclass
+class DatasetDisplayContoursModel:
+    variable: Optional[str] = None
+    levels: Optional[str] = None
+
+@dataclass
+class DatasetDisplayVectorsModel:
+    variable: Optional[str] = None
+    density: Optional[str] = None
+    reference: Optional[float] = None
+
+@dataclass
+class DatasetDisplayPointModel:
+    latitude: float
+    longitude: float
+
+@dataclass
+class DatasetDisplayChannelModel:
+    """ One colour channel of a picture drawn from three variables. """
+    variable: Optional[str] = None
+    range: Optional[list[float]] = None
+    gamma: Optional[float] = None
+
+@dataclass
+class DatasetDisplayCompositeModel:
+    """ A picture drawn from three variables as red, green and blue. """
+    red: Optional[DatasetDisplayChannelModel] = None
+    green: Optional[DatasetDisplayChannelModel] = None
+    blue: Optional[DatasetDisplayChannelModel] = None
+
+@dataclass
+class DatasetDisplayNdviModel:
+    """ A vegetation index drawn from a near infrared and a red variable, (nir - red) / (nir + red). """
+    nir: Optional[str] = None
+    red: Optional[str] = None
+
+@dataclass
+class DatasetDisplaySectionModel:
+    log: Optional[bool] = None
+    shown: Optional[bool] = None
+    route: Optional[str] = None
+    ends: Optional[list[DatasetDisplayPointModel]] = None
+
+@dataclass
+class DatasetDisplayViewModel:
+    """ How a dataset is first shown on a map. `fillMode` is `image`, `bands`, `composite` or `ndvi`. """
+    variable: Optional[str] = None
+    fillMode: Optional[str] = None
+    fillLevels: Optional[str] = None
+    layers: Optional[list[str]] = None
+    labels: Optional[bool] = None
+    points: Optional[list[DatasetDisplayPointModel]] = None
+    levels: Optional[dict[str, float]] = None
+    contours: Optional[DatasetDisplayContoursModel] = None
+    vectors: Optional[DatasetDisplayVectorsModel] = None
+    section: Optional[DatasetDisplaySectionModel] = None
+    composite: Optional[DatasetDisplayCompositeModel] = None
+    ndvi: Optional[DatasetDisplayNdviModel] = None
+
+@dataclass
+class DatasetDisplayModel:
+    """ The overrides for showing a dataset, by variable name, the layout of its schematic and how it is first shown. """
+    variables: dict[str, DatasetDisplayVariableModel]
+    schematic: Optional[DatasetDisplaySchematicModel] = None
+    view: Optional[DatasetDisplayViewModel] = None
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Explorer: the Tracks, Sites, shapes, rasters and grids of the accounts the caller may read.
+# ---------------------------------------------------------------------------------------------------------------------
+
+@dataclass
+class ExplorerBBoxModel:
+    """ A spatial envelope in degrees. The longitude runs from `west` eastward to `east`, so one over the antimeridian
+    has `east` past 180 (170 to 190). """
+    west: float
+    south: float
+    east: float
+    north: float
+
+@dataclass
+class ExplorerLayerModel:
+    """ One layer of the Explorer catalog. `kind` is `site`, `track`, `shape`, `raster`, `grid` or `mesh`. `bbox`,
+    `timeFrom` and `timeTo` are left out where nothing is stored for the layer. `described` says the layer has a mapping
+    and is read as a dataset. """
+    id: str
+    kind: str
+    label: str
+    account: str
+    category: str
+    profile: str
+    lastUpdated: int
+    bbox: Optional[ExplorerBBoxModel] = None
+    timeFrom: Optional[int] = None
+    timeTo: Optional[int] = None
+    described: bool = False
+
+    def last_updated_datetime(self) -> datetime:
+        return _utc(self.lastUpdated)
+
+    def time_from_datetime(self) -> Optional[datetime]:
+        return _utc(self.timeFrom) if self.timeFrom is not None else None
+
+    def time_to_datetime(self) -> Optional[datetime]:
+        return _utc(self.timeTo) if self.timeTo is not None else None
+
+@dataclass
+class ExplorerFacetValueModel:
+    value: str
+    count: int
+
+@dataclass
+class ExplorerCatalogModel:
+    """ A page of the Explorer catalog. `facets` (`kind`, `category`, `profile`) count the layers that match every filter
+    but that facet's own. `total` counts every match; `capped` says this page holds fewer, and `nextCursor` then fetches
+    the next. """
+    layers: list[ExplorerLayerModel]
+    facets: dict[str, list[ExplorerFacetValueModel]]
+    total: int
+    capped: bool
+    nextCursor: Optional[str] = None
+
+@dataclass
+class ExplorerClusterPartModel:
+    kind: str
+    category: str
+    count: int
+
+@dataclass
+class ExplorerClusterModel:
+    """ The layers placed in one cell of a grid. `kinds` counts them by kind and `parts` by kind and category; `bbox`
+    holds every layer's envelope; a cell with one layer describes it in `layer`. """
+    longitude: float
+    latitude: float
+    count: int
+    kinds: dict[str, int]
+    parts: list[ExplorerClusterPartModel]
+    bbox: ExplorerBBoxModel
+    layer: Optional[ExplorerLayerModel] = None
+
+@dataclass
+class ExplorerTimeProfileModel:
+    """ The time the matching layers cover, from `from_` to `to` (milliseconds), and how many end in each equal slice of
+    it. Both are left out, and `counts` is empty, when no layer has a time. """
+    counts: list[int]
+    from_: Optional[int] = field(default=None, metadata=dict(data_key="from"))
+    to: Optional[int] = None
+
+    def from_datetime(self) -> Optional[datetime]:
+        return _utc(self.from_) if self.from_ is not None else None
+
+    def to_datetime(self) -> Optional[datetime]:
+        return _utc(self.to) if self.to is not None else None
