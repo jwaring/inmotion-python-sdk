@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from inmotion.datastream import InMotionDataStreamImpl
-from inmotion.models import DataChannelCreatorModel, DataStreamCreatorModel, DataStreamFilterModel
+from inmotion.models import ActivityModel, DataChannelCreatorModel, DataStreamCreatorModel, DataStreamFilterModel
+from inmotion.utils import stringify
 
 
 def _fake_session():
@@ -298,3 +299,70 @@ def test_find_blobs_posts_filter_and_uses_many_true():
     assert mock_request_json.call_args.args[0] == "POST"
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/data-streams/blobs"
     assert mock_request_json.call_args.kwargs["many"] is True
+
+
+def test_retrieve_statistics_builds_iso_window_and_query():
+    impl = InMotionDataStreamImpl(_fake_session())
+    with patch("inmotion.datastream.request_json", return_value={"available": True}) as mock_request_json:
+        result = impl.retrieve_statistics("k1", "AA", datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+                                          datetime(2026, 1, 3, tzinfo=timezone.utc), max_points=300)
+
+    assert result == {"available": True}
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == (
+        "http://example.test/api/v2/data-stream/data/k1/AA/statistics/"
+        "2026-01-02T03%3A04%3A05.000Z/2026-01-03T00%3A00%3A00.000Z?maxPoints=300")
+
+
+def test_retrieve_statistics_loads_the_typed_response():
+    from inmotion.models import StatisticsModel
+    raw = {
+        "key": "k1", "channelCode": "AA", "from": 1000, "to": 5000, "available": True,
+        "resolution": {"bucketMs": 1000, "level": 2, "exact": True, "future": 1},
+        "truncated": False, "totalBuckets": 2, "times": [1000, 2000],
+        "variables": [{"name": "airTemperature", "stdDataType": None, "units": "C", "behaviour": "continuous",
+                       "measures": [{"name": "n", "role": "count", "exact": True, "derived": False}],
+                       "values": {"n": [4.0, 0.0], "mean": [20.5, None]}}],
+    }
+    response = MagicMock()
+    response.json.return_value = raw
+    with patch("inmotion.utils._send_request", return_value=response):
+        stats = InMotionDataStreamImpl(_fake_session()).retrieve_statistics(
+            "k1", "AA", datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 2, tzinfo=timezone.utc))
+
+    assert isinstance(stats, StatisticsModel)
+    assert stats.start == 1000 and stats.resolution.bucketMs == 1000
+    assert stats.variable("airTemperature").values["mean"] == [20.5, None]
+    assert stats.variable("missing") is None
+
+
+def test_register_invariant_blob_data_puts_the_data_uuid():
+    impl = InMotionDataStreamImpl(_fake_session())
+    with patch("inmotion.datastream.request_json", return_value=MagicMock()) as mock_request_json:
+        impl.register_invariant_blob_data("k1", "BL", "main", "uuid-1")
+
+    assert mock_request_json.call_args.args[0] == "PUT"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/data-stream/blob/k1/BL/static/main/register?dataUuid=uuid-1"
+
+
+def test_data_stream_creator_carries_copyright_and_licence():
+    creator = _ds_creator()
+    assert creator.copyright is None and creator.licence is None
+
+    creator.copyright = "GEBCO Compilation Group (2026)"
+    creator.licence = "CC-BY-4.0"
+    body = stringify(creator)
+
+    assert '"copyright":"GEBCO Compilation Group (2026)"' in body
+    assert '"licence":"CC-BY-4.0"' in body
+
+
+def test_activity_carries_copyright_and_licence():
+    activity = ActivityModel(
+        account="a", actType="T", name="n", comment="", tags=[], sourceIdentifier="s", sourceCategory="c",
+        sourceName="sn", acqConv="O", created=0, datum="WGS84", timezone="UTC", sensors=[], attrs={},
+        copyright="CSIRO", licence="CC-BY-4.0",
+    )
+    body = stringify(activity)
+
+    assert '"copyright":"CSIRO"' in body and '"licence":"CC-BY-4.0"' in body

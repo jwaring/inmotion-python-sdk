@@ -6,6 +6,7 @@ from hashlib import md5
 from typing import Optional, Type, TypeVar
 
 import marshmallow_dataclass
+import marshmallow
 import requests
 from Crypto.Hash import HMAC
 from Crypto.Hash import SHA1
@@ -17,6 +18,17 @@ DEFAULT_TIMEOUT_SECONDS = 30
 _http_session = requests.Session()
 
 T = TypeVar('T')
+
+
+class _TolerantSchema(marshmallow.Schema):
+    """ Ignores response fields the SDK does not know, so a server that adds a field does not break
+    older clients. """
+    class Meta:
+        unknown = marshmallow.EXCLUDE
+
+
+def response_schema(model):
+    return marshmallow_dataclass.class_schema(model, base_schema=_TolerantSchema)
 
 def stringify(o):
     if dataclasses.is_dataclass(o):
@@ -85,7 +97,7 @@ def request_json(method: str, url: str, headers: dict[str, str], data: str | byt
         return r.json()
 
     try:
-        return marshmallow_dataclass.class_schema(model)(many=many).load(r.json())
+        return response_schema(model)(many=many).load(r.json())
     except Exception as e:
         raise InMotionAPIError(f"Malformed response received from inMotion for: {error_message}") from e
 
@@ -95,7 +107,7 @@ def request_json_map(method: str, url: str, headers: dict[str, str], data: str |
     """ Like request_json, but for endpoints whose JSON response is a genuine map of key -> model
     instance (e.g. upload uuid -> UploadMetadataModel) rather than a single object or a list. """
     raw = request_json(method, url, headers, data, error_message, model=None, timeout=timeout)
-    schema = marshmallow_dataclass.class_schema(model)()
+    schema = response_schema(model)()
     try:
         return {key: schema.load(value) for key, value in raw.items()}
     except Exception as e:

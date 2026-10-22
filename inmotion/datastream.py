@@ -1,4 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
+from urllib.parse import quote, urlencode
 
 from inmotion.api import InMotionSession, InMotionDataStream
 from inmotion.models import (
@@ -10,6 +12,7 @@ from inmotion.models import (
     DataStreamInvariantBlobMetadataModel,
     DataStreamRecordsBlobMetadataModel,
     DataStreamSummaryModel,
+    StatisticsModel,
 )
 from inmotion.utils import request_json, request_json_map, request_raw, stringify
 
@@ -117,6 +120,23 @@ class InMotionDataStreamImpl(InMotionDataStream):
                              '',
                              'Failed to retrieve hyperslab record data')
 
+    def retrieve_statistics(self, key: str, channel_code: str, start: datetime, end: datetime,
+                            max_points: Optional[int] = None, bucket_ms: Optional[int] = None,
+                            unit_system: Optional[str] = None) -> StatisticsModel:
+        def iso(moment: datetime) -> str:
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=timezone.utc)
+            return quote(moment.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'), safe='')
+        params = {name: value for name, value in
+                  (('maxPoints', max_points), ('bucketMs', bucket_ms), ('unitSystem', unit_system))
+                  if value is not None}
+        query = f"?{urlencode(params)}" if params else ''
+        return request_json('GET', f"{self._ds_path}/data/{key}/{channel_code}/statistics/{iso(start)}/{iso(end)}{query}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve statistics',
+                             StatisticsModel)
+
     def update_hyperslab_record_data(self, key: str, channel_code: str, data: dict) -> dict:
         data_str = stringify(data)
         return request_json('POST', f"{self._ds_path}/data/{key}/{channel_code}/records",
@@ -162,6 +182,13 @@ class InMotionDataStreamImpl(InMotionDataStream):
                              self._session.build_headers(content=signed_content),
                              data,
                              'Failed to update invariant blob data',
+                             DataStreamInvariantBlobMetadataModel)
+
+    def register_invariant_blob_data(self, key: str, channel_code: str, profile: str, data_uuid: str) -> DataStreamInvariantBlobMetadataModel:
+        return request_json('PUT', f"{self._ds_path}/blob/{key}/{channel_code}/static/{profile}/register?{urlencode({'dataUuid': data_uuid})}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to register invariant blob data',
                              DataStreamInvariantBlobMetadataModel)
 
     def find_blob_record_data(self, key: str, channel_code: str, start: datetime, end: datetime, profile: str) -> dict[str, DataStreamRecordsBlobMetadataModel]:

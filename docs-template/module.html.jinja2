@@ -2,6 +2,22 @@
 
 {% block title %}inMotion Python SDK{% endblock %}
 
+{% block head %}
+    <script>
+    (function () {
+        var choice = 'system';
+        try { var v = window.localStorage.getItem('im.appearance'); if (v === 'light' || v === 'dark') { choice = v; } } catch (e) {}
+        var query = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+        function apply() {
+            var dark = choice === 'dark' || (choice === 'system' && !!query && query.matches);
+            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        }
+        apply();
+        if (query && query.addEventListener) { query.addEventListener('change', apply); }
+    })();
+    </script>
+{% endblock %}
+
 {% block module_info %}
     <section class="module-info">
         <h1 class="modulename">inMotion Python SDK</h1>

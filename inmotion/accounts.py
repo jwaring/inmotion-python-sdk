@@ -10,6 +10,7 @@ from inmotion.models import (
     AccountUpdateBatchCommandModel,
     AccountUpdateBatchResultsModel,
     AccountUserSummaryModel,
+    StatusMessageModel,
     AccountUserUnregisteredModel,
     AddAccountMemberRequestModel,
     DeviceConfigSyncRequestModel,
@@ -93,6 +94,13 @@ class InMotionAccountsImpl(InMotionAccounts):
                              'Failed to create account',
                              AccountDetailsModel)
 
+    def request_account_data(self, account_key: str) -> StatusMessageModel:
+        return request_json('POST', f"{self._prefix_path}/account/data-request/{account_key}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to request account data',
+                             StatusMessageModel)
+
     def mark_account_for_deletion(self, account_key: str, and_user: bool) -> AccountMarkedForDeletionModel:
         and_user_segment = 'true' if and_user else 'false'
         return request_json('DELETE', f"{self._prefix_path}/account/delete/{account_key}/{and_user_segment}",
@@ -101,12 +109,12 @@ class InMotionAccountsImpl(InMotionAccounts):
                              'Failed to mark account for deletion',
                              AccountMarkedForDeletionModel)
 
-    def find_my_accounts(self) -> dict[str, UserAccountSummaryModel]:
-        return request_json_map('GET', f"{self._prefix_path}/accounts",
-                                 self._session.build_headers(content=''),
-                                 '',
-                                 'Failed to retrieve accounts',
-                                 UserAccountSummaryModel)
+    def find_my_accounts(self) -> list[UserAccountSummaryModel]:
+        return request_json('GET', f"{self._prefix_path}/accounts",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve accounts',
+                             UserAccountSummaryModel, many=True)
 
     def fetch_global_device_configs(self) -> dict:
         return request_json('GET', f"{self._prefix_path}/device-config",

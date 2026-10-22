@@ -2,7 +2,6 @@ from dataclasses import asdict
 from typing import Optional
 from urllib.parse import quote
 
-import marshmallow_dataclass
 
 from inmotion.api import InMotionSession, InMotionFolio
 from inmotion.models import (
@@ -17,7 +16,7 @@ from inmotion.models import (
     FolioSummaryModel,
     FolioValidationReportModel,
 )
-from inmotion.utils import request_json, stringify
+from inmotion.utils import request_json, response_schema, stringify
 
 
 def _query_string(**params) -> str:
@@ -93,7 +92,7 @@ class InMotionFolioImpl(InMotionFolio):
         # (addressing a named section) - the two are distinguished by the presence of `name`,
         # which only a named section has.
         model = FolioSectionModel if 'name' in raw else FolioRootModel
-        return marshmallow_dataclass.class_schema(model)().load(raw)
+        return response_schema(model)().load(raw)
 
     def create_section(self, key: str, section: FolioSectionCreateModel, path: Optional[str] = None) -> None:
         qs = _query_string(path=path)

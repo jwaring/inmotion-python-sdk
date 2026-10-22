@@ -136,15 +136,16 @@ def test_mark_account_for_deletion_issues_a_delete_with_stringified_bool():
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/delete/acct1/false"
 
 
-def test_find_my_accounts_uses_root_level_path_and_map():
+def test_find_my_accounts_uses_root_level_path_and_list():
     session = _fake_session()
     impl = InMotionAccountsImpl(session)
 
-    with patch("inmotion.accounts.request_json_map", return_value={}) as mock_request_json_map:
+    with patch("inmotion.accounts.request_json", return_value=[]) as mock_request_json:
         impl.find_my_accounts()
 
-    assert mock_request_json_map.call_args.args[0] == "GET"
-    assert mock_request_json_map.call_args.args[1] == "http://example.test/api/v2/accounts"
+    assert mock_request_json.call_args.args[0] == "GET"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/accounts"
+    assert mock_request_json.call_args.kwargs["many"] is True
 
 
 def test_fetch_global_device_configs_issues_a_get():
@@ -328,3 +329,17 @@ def test_find_account_activity_master_data_issues_a_get():
         impl.find_account_activity_master_data("acct1")
 
     assert mock_request_json.call_args.args[:2] == ("GET", "http://example.test/api/v2/account/acct1/activity/master-data")
+
+
+def test_request_account_data_posts_to_the_data_request_route():
+    from unittest.mock import MagicMock, patch
+    from inmotion.accounts import InMotionAccountsImpl
+    session = MagicMock()
+    session.base_url = "http://example.test"
+    session.api_path = "/api/v2"
+    session.build_headers.return_value = {}
+    with patch("inmotion.accounts.request_json", return_value=MagicMock()) as mock_request_json:
+        InMotionAccountsImpl(session).request_account_data("acct1")
+
+    assert mock_request_json.call_args.args[0] == "POST"
+    assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/account/data-request/acct1"
