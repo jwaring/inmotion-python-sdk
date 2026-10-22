@@ -2,7 +2,22 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Optional
 
+from inmotion.hyperslab import Hyperslab
 from inmotion.models import (
+    DatasetDescriptionModel,
+    DatasetDisplayModel,
+    DatasetEdgesModel,
+    DatasetListingModel,
+    DatasetMappingAppliedModel,
+    DatasetPropertiesModel,
+    DatasetRangeModel,
+    DatasetSampleRequestModel,
+    DatasetSampleResultModel,
+    DatasetSetModel,
+    ExplorerCatalogModel,
+    ExplorerClusterModel,
+    ExplorerTimeProfileModel,
+    ExplorerBBoxModel,
     AccountAPIKeyCreatorModel,
     AccountAPIKeyModel,
     AccountAPIKeyResponseModel,
@@ -91,9 +106,6 @@ from inmotion.models import (
     NearbyTracksFilterModel,
     OTCModel,
     QCConfigModel,
-    RasterOverlayDetailsModel,
-    RasterOverlaySummaryModel,
-    RasterOverlayStyleUpdateModel,
     SetModelFieldValueRequestModel,
     ShapeDetailsModel,
     ShapeGeneratorDetailsModel,
@@ -1944,94 +1956,241 @@ class InMotionShape(ABC):
         pass
 
 
-class InMotionRasterOverlay(ABC):
-    """ Raster overlay management: WMS-served raster/gridded imagery (GeoTIFF/COG today, gridded
-    model data later), managed alongside vector Shapes. Creation is import-tool-only - no
-    create/upload method exists here. Gated by the SHAPE_EDITOR account feature/privilege AND the
-    global `inmotion.wms.enabled` kill-switch. """
+class InMotionDatasets(ABC):
+    """ Datasets: gridded data such as model output, satellite imagery and drone imagery, held as a data stream with a
+    mapping that says how its file is laid out. A dataset is read as a description, as tiles and slices of values, as
+    samples at places and times, and as the display config that says how it is first shown.
+
+    Tiles and slices come back parsed from the hyperslab format the API sends. Times are ISO 8601 instants such as
+    ``2025-02-10T02:00:00Z``. A variable that does not vary with time takes no ``time``, and one that does needs it.
+    """
 
     @abstractmethod
-    def find_raster_overlays(self, account_key: str) -> list[RasterOverlaySummaryModel]:
-        """ List raster overlay summaries for an account
+    def find_datasets(self, account_key: str) -> list[DatasetListingModel]:
+        """ List the datasets of an account: the data streams visible to it that have a mapping, by name
 
-        :param str account_key: The unique key of the account
-        :return: The matching raster overlay summaries
-        :rtype: list[RasterOverlaySummaryModel]
+        :param str account_key: The key of the account
+        :return: The datasets
+        :rtype: list[DatasetListingModel]
         """
         pass
 
     @abstractmethod
-    def find_raster_overlay(self, key: str) -> RasterOverlayDetailsModel:
-        """ Find a raster overlay by its unique key. Metadata only - never the raw raster file.
+    def find_dataset_description(self, key: str) -> DatasetDescriptionModel:
+        """ Find what a dataset is: its dimensions, coordinate sets and variables
 
-        :param str key: The unique key of the raster overlay
-        :return: The raster overlay's details
-        :rtype: RasterOverlayDetailsModel
+        :param str key: The key of the data stream that holds the dataset
+        :return: The description
+        :rtype: DatasetDescriptionModel
         """
         pass
 
     @abstractmethod
-    def update_raster_overlay_style(self, key: str, style: RasterOverlayStyleUpdateModel) -> RasterOverlayDetailsModel:
-        """ Update a raster overlay's editable metadata - style plus name/comment/tags. Omitted
-        fields are left untouched.
+    def update_dataset_properties(self, key: str, properties: DatasetPropertiesModel) -> DatasetListingModel:
+        """ Replace a dataset's name, comment, tags, copyright and licence
 
-        :param str key: The unique key of the raster overlay to update
-        :param RasterOverlayStyleUpdateModel style: The fields to update
-        :return: The updated raster overlay's details
-        :rtype: RasterOverlayDetailsModel
+        :param str key: The key of the data stream that holds the dataset
+        :param DatasetPropertiesModel properties: The properties to set
+        :return: The dataset as it is now listed
+        :rtype: DatasetListingModel
         """
         pass
 
     @abstractmethod
-    def delete_raster_overlay(self, key: str) -> None:
-        """ Delete a raster overlay by its unique key
+    def update_dataset_mapping(self, key: str, mapping: str) -> DatasetMappingAppliedModel:
+        """ Replace a dataset's mapping. The mapping is checked against the files of the set and refused, with each thing
+        wrong at its path, if it does not agree with them
 
-        :param str key: The unique key of the raster overlay to delete
+        :param str key: The key of the data stream that holds the dataset
+        :param str mapping: The mapping, as YAML text
+        :return: The version stored and the description it gives
+        :rtype: DatasetMappingAppliedModel
         """
         pass
 
     @abstractmethod
-    def render_map(self, key: str, bbox: tuple[float, float, float, float], width: int, height: int,
-                   token: str, crs: str = 'EPSG:3857') -> bytes:
-        """ Render a WMS ``GetMap``-equivalent PNG tile for a raster overlay.
+    def find_dataset_tile(self, key: str, variable: str, z: int, x: int, y: int, time: Optional[str] = None,
+                          level: Optional[int] = None) -> Hyperslab:
+        """ Find one tile of a variable, on the web map grid (EPSG:3857) at zoom ``z``, as unstyled values
 
-        This endpoint is gated by the ``inmotion.wms.enabled`` server kill-switch (disabled in
-        some deployments) in addition to the SHAPE_EDITOR account feature. It is not
-        header-authenticated: pass a short-lived ``token`` obtained from the ``mapToken`` field of
-        a preceding ``find_raster_overlay`` or ``update_raster_overlay_style`` call (the token is
-        re-minted on every such call and expires ~30 minutes after it was issued).
-
-        :param str key: The unique key of the raster overlay
-        :param tuple bbox: ``(minX, minY, maxX, maxY)`` in the requested CRS
-        :param int width: Output width in pixels
-        :param int height: Output height in pixels
-        :param str token: A current ``mapToken`` for this raster overlay
-        :param str crs: Coordinate reference system - only ``EPSG:3857`` is served
-        :return: The rendered tile as PNG bytes
-        :rtype: bytes
+        :param str key: The key of the data stream that holds the dataset
+        :param str variable: The name of the variable in the mapping
+        :param int z: The zoom of the tile
+        :param int x: The column of the tile
+        :param int y: The row of the tile
+        :param Optional[str] time: The instant the tile is for, of a variable that varies with time
+        :param Optional[int] level: The index of the level, of a variable with a vertical. The surface by default
+        :return: The values of the tile
+        :rtype: Hyperslab
         """
         pass
 
     @abstractmethod
-    def find_model_field_groups(self, key: str) -> list[ModelFieldGroupModel]:
-        """ Find a raster overlay's custom classification field values - one field group per
-        active classification tag on this raster overlay.
+    def find_dataset_range(self, key: str, variable: str, time: Optional[str] = None,
+                           level: Optional[int] = None) -> DatasetRangeModel:
+        """ Find the range colours run between where none is chosen: the 2nd to the 98th percentile of the variable over
+        the dataset's extent
 
-        :param str key: The unique key of the raster overlay
-        :return: The raster overlay's active classification field groups
-        :rtype: list[ModelFieldGroupModel]
+        :param str key: The key of the data stream that holds the dataset
+        :param str variable: The name of the variable in the mapping
+        :param Optional[str] time: The instant, of a variable that varies with time
+        :param Optional[int] level: The index of the level, of a variable with a vertical
+        :return: The low and high of the range
+        :rtype: DatasetRangeModel
         """
         pass
 
     @abstractmethod
-    def set_model_field_value(self, key: str, request: SetModelFieldValueRequestModel) -> list[ModelFieldGroupModel]:
-        """ Set (or, if value is omitted/blank on an optional field, clear) one custom
-        classification field's value for one active tag on a raster overlay.
+    def find_dataset_edges(self, key: str, variable: str, z: int, x: int, y: int) -> DatasetEdgesModel:
+        """ Find the edges of the cells that cross a tile, to draw the grid of a dataset
 
-        :param str key: The unique key of the raster overlay
-        :param SetModelFieldValueRequestModel request: The field value to set
-        :return: The raster overlay's active classification field groups, including the updated value
-        :rtype: list[ModelFieldGroupModel]
+        :param str key: The key of the data stream that holds the dataset
+        :param str variable: The name of the variable in the mapping
+        :param int z: The zoom of the tile
+        :param int x: The column of the tile
+        :param int y: The row of the tile
+        :return: The lines, or none and ``tooMany`` where the tile holds too many nodes to draw
+        :rtype: DatasetEdgesModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dataset_slice(self, key: str, variable: str, time: Optional[str] = None, level: Optional[int] = None,
+                           start: Optional[str] = None, count: Optional[str] = None,
+                           stride: Optional[str] = None) -> Hyperslab:
+        """ Find a window of a variable in the dataset's own grid, as values
+
+        :param str key: The key of the data stream that holds the dataset
+        :param str variable: The name of the variable in the mapping
+        :param Optional[str] time: The instant the slice is for, of a variable that varies with time
+        :param Optional[int] level: The index of the level, of a variable with a vertical
+        :param Optional[str] start: The first row and column of the window. The origin by default
+        :param Optional[str] count: The number of rows and columns to take. To the end of the grid by default
+        :param Optional[str] stride: The step between rows and between columns. One by default
+        :return: The values of the window
+        :rtype: Hyperslab
+        """
+        pass
+
+    @abstractmethod
+    def sample_dataset(self, key: str, request: DatasetSampleRequestModel) -> DatasetSampleResultModel:
+        """ Sample a variable at places and times, such as those of a Site or a Track. Point values are interpolated
+        across the cell and between the two records either side of the time, with no extrapolation. Give an ``observed``
+        value with a position to get the comparison of the dataset with the observations in ``comparison``. A request
+        over the cost limit is refused with the largest window or batch that is allowed, and is never truncated
+
+        :param str key: The key of the data stream that holds the dataset
+        :param DatasetSampleRequestModel request: The variable and the positions
+        :return: The samples, in the order of the positions
+        :rtype: DatasetSampleResultModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dataset_display(self, key: str) -> DatasetDisplayModel:
+        """ Find how a dataset is shown: the overrides by variable and how it is first shown on a map
+
+        :param str key: The key of the data stream that holds the dataset
+        :return: The display config
+        :rtype: DatasetDisplayModel
+        """
+        pass
+
+    @abstractmethod
+    def update_dataset_display(self, key: str, display: str) -> DatasetDisplayModel:
+        """ Replace how a dataset is shown. The display is checked against the mapping and refused, with each thing wrong
+        at its path, if it does not agree with it
+
+        :param str key: The key of the data stream that holds the dataset
+        :param str display: The display config, as YAML (or JSON) text, with keys such as ``fill_mode`` and ``axis_range``
+        :return: The display as stored
+        :rtype: DatasetDisplayModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dataset_members(self, key: str) -> DatasetSetModel:
+        """ Find the files of a dataset's set in order along time, and the gaps between them
+
+        :param str key: The key of the data stream that holds the dataset
+        :return: The members, the gaps and the rule for members that share time
+        :rtype: DatasetSetModel
+        """
+        pass
+
+    @abstractmethod
+    def verify_dataset_members(self, key: str, data_uuid: Optional[str] = None) -> DatasetSetModel:
+        """ Check the files of a dataset's set against the size and SHA-256 registered. A file that differs is marked
+        ``changed`` and one that is gone ``missing``
+
+        :param str key: The key of the data stream that holds the dataset
+        :param Optional[str] data_uuid: Check this member only. All members by default
+        :return: The members with their state
+        :rtype: DatasetSetModel
+        """
+        pass
+
+
+class InMotionExplorer(ABC):
+    """ The Explorer catalog: the Tracks, Sites, shapes, rasters and grids of every account the caller may read, found by
+    kind, category, place, time or text. Leaving ``scope`` out resolves to every account the caller can access whose
+    subscription includes Explore. Times are milliseconds since the epoch and a place is a bounding box in degrees.
+    """
+
+    @abstractmethod
+    def find_catalog(self, scope: Optional[list[str]] = None, kinds: Optional[list[str]] = None,
+                     categories: Optional[list[str]] = None, exact_categories: bool = False,
+                     profiles: Optional[list[str]] = None, text: Optional[str] = None,
+                     bbox: Optional[ExplorerBBoxModel] = None, time_from: Optional[int] = None,
+                     time_to: Optional[int] = None, limit: Optional[int] = None, cursor: Optional[str] = None,
+                     ids: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> ExplorerCatalogModel:
+        """ Find the layers that match, newest first, with the counts of each kind, category and profile among them. A
+        page holds at most 500 layers; ``nextCursor`` fetches the next
+
+        :param Optional[list[str]] scope: The accounts to look in
+        :param Optional[list[str]] kinds: Keep layers of these kinds: ``site``, ``track``, ``shape``, ``raster``, ``grid``, ``mesh``
+        :param Optional[list[str]] categories: Keep layers in these categories and those beneath them
+        :param bool exact_categories: Keep only the layers in exactly the given categories
+        :param Optional[list[str]] profiles: Keep layers of these profiles
+        :param Optional[str] text: Text found in a layer's name or category, ignoring case
+        :param Optional[ExplorerBBoxModel] bbox: Keep layers whose envelope meets this region
+        :param Optional[int] time_from: Keep layers that reach this time, in milliseconds
+        :param Optional[int] time_to: Keep layers that start by this time, in milliseconds
+        :param Optional[int] limit: The most layers to return
+        :param Optional[str] cursor: The ``nextCursor`` of the previous page
+        :param Optional[list[str]] ids: Keep only the layers with these identifiers
+        :param Optional[list[str]] tags: Keep layers that carry any of these tags
+        :return: A page of the catalog
+        :rtype: ExplorerCatalogModel
+        """
+        pass
+
+    @abstractmethod
+    def find_clusters(self, cell: float, scope: Optional[list[str]] = None, kinds: Optional[list[str]] = None,
+                      categories: Optional[list[str]] = None, exact_categories: bool = False,
+                      profiles: Optional[list[str]] = None, text: Optional[str] = None,
+                      bbox: Optional[ExplorerBBoxModel] = None, time_from: Optional[int] = None,
+                      time_to: Optional[int] = None, ids: Optional[list[str]] = None,
+                      tags: Optional[list[str]] = None) -> list[ExplorerClusterModel]:
+        """ Find the matching layers grouped into the cells of a grid
+
+        :param float cell: The width and height of a cell, in degrees (between 0.00001 and 90)
+        :return: The cells that hold layers
+        :rtype: list[ExplorerClusterModel]
+        """
+        pass
+
+    @abstractmethod
+    def find_time_profile(self, buckets: Optional[int] = None, scope: Optional[list[str]] = None,
+                          kinds: Optional[list[str]] = None, categories: Optional[list[str]] = None,
+                          exact_categories: bool = False, profiles: Optional[list[str]] = None,
+                          text: Optional[str] = None, bbox: Optional[ExplorerBBoxModel] = None,
+                          ids: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> ExplorerTimeProfileModel:
+        """ Find all the time the matching layers cover, and how many end in each of ``buckets`` equal slices of it
+
+        :param Optional[int] buckets: Slices of the time covered (default 60, at most 240)
+        :return: The time covered and the counts
+        :rtype: ExplorerTimeProfileModel
         """
         pass
 
@@ -2793,20 +2952,29 @@ class InMotionSession(ABC):
         pass
 
     @abstractmethod
+    def datasets(self) -> InMotionDatasets:
+        """ Retrieve the gridded dataset interface for the session
+
+        :return: The dataset interface
+        :rtype: InMotionDatasets
+        """
+        pass
+
+    @abstractmethod
+    def explorer(self) -> InMotionExplorer:
+        """ Retrieve the Explorer catalog interface for the session
+
+        :return: The Explorer catalog interface
+        :rtype: InMotionExplorer
+        """
+        pass
+
+    @abstractmethod
     def shape_generator(self) -> InMotionShapeGenerator:
         """ Retrieve the shape generator management interface for the session
 
         :return: The shape generator management interface
         :rtype: InMotionShapeGenerator
-        """
-        pass
-
-    @abstractmethod
-    def raster_overlay(self) -> InMotionRasterOverlay:
-        """ Retrieve the raster overlay management interface for the session
-
-        :return: The raster overlay management interface
-        :rtype: InMotionRasterOverlay
         """
         pass
 

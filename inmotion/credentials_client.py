@@ -11,7 +11,8 @@ from inmotion.exceptions import InMotionAuthenticationError, InMotionError, InMo
 from inmotion.folio import InMotionFolioImpl
 from inmotion.model import InMotionModelImpl
 from inmotion.mqtt_deployment import InMotionMqttDeploymentImpl
-from inmotion.raster_overlay import InMotionRasterOverlayImpl
+from inmotion.datasets import InMotionDatasetsImpl
+from inmotion.explorer import InMotionExplorerImpl
 from inmotion.shape import InMotionShapeImpl
 from inmotion.shapegenerator import InMotionShapeGeneratorImpl
 from inmotion import (
@@ -27,7 +28,8 @@ from inmotion import (
     InMotionFolio,
     InMotionModel,
     InMotionMqttDeployment,
-    InMotionRasterOverlay,
+    InMotionDatasets,
+    InMotionExplorer,
     InMotionShape,
     InMotionShapeGenerator,
     InMotionUpload,
@@ -102,14 +104,17 @@ class InMotionCredentialsSession(InMotionSession):
     def data_stream(self) -> InMotionDataStream:
         return InMotionDataStreamImpl(self)
 
+    def datasets(self) -> InMotionDatasets:
+        return InMotionDatasetsImpl(self)
+
+    def explorer(self) -> InMotionExplorer:
+        return InMotionExplorerImpl(self)
+
     def shape(self) -> InMotionShape:
         return InMotionShapeImpl(self)
 
     def shape_generator(self) -> InMotionShapeGenerator:
         return InMotionShapeGeneratorImpl(self)
-
-    def raster_overlay(self) -> InMotionRasterOverlay:
-        return InMotionRasterOverlayImpl(self)
 
     def audit(self) -> InMotionAudit:
         return InMotionAuditImpl(self)
