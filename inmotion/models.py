@@ -883,6 +883,9 @@ class DataStreamCreatorModel:
     appKey: Optional[str] = None
     copyright: Optional[str] = None
     licence: Optional[str] = None
+    licenceUrl: Optional[str] = None
+    sourceUrl: Optional[str] = None
+    attributionNotes: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
@@ -907,6 +910,9 @@ class DataStreamModel:
     appKey: Optional[str] = None
     copyright: Optional[str] = None
     licence: Optional[str] = None
+    licenceUrl: Optional[str] = None
+    sourceUrl: Optional[str] = None
+    attributionNotes: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
@@ -1483,9 +1489,12 @@ class ActivityModel:
     datum: str
     timezone: str
     sensors: list[SensorModel]
-    attrs: dict[str, AttributeValueModel]
+    attrs: dict[str, AttrKindValueModel]
     copyright: Optional[str] = None
     licence: Optional[str] = None
+    licenceUrl: Optional[str] = None
+    sourceUrl: Optional[str] = None
+    attributionNotes: Optional[str] = None
 
     def created_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.created / 1000.0)
@@ -2549,6 +2558,9 @@ class DatasetListingModel:
     tags: list[str]
     copyright: Optional[str] = None
     licence: Optional[str] = None
+    licenceUrl: Optional[str] = None
+    sourceUrl: Optional[str] = None
+    attributionNotes: Optional[str] = None
     kind: str = "grid"
 
 @dataclass
@@ -2559,6 +2571,9 @@ class DatasetPropertiesModel:
     tags: list[str]
     copyright: Optional[str] = None
     licence: Optional[str] = None
+    licenceUrl: Optional[str] = None
+    sourceUrl: Optional[str] = None
+    attributionNotes: Optional[str] = None
 
 @dataclass
 class DatasetDimensionModel:
