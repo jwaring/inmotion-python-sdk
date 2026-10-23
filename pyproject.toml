@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "inmotion-sdk"
-version = "0.3.0"
+version = "0.3.1"
 description = "An SDK for integrating with inMotion API"
 authors = [{ name = "Jason Waring", email = "jason@softwaringsolutions.com" }]
 license = { text = "MIT" }
