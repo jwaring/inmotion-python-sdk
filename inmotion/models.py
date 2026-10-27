@@ -1815,6 +1815,52 @@ class UpdateTrackActivityModel:
     activity: ActivityModel
 
 @dataclass
+class RegionSearchFilterModel:
+    """ A latitude/longitude box, and optionally the period to look in (epoch milliseconds). The box must not cross the
+    antimeridian. """
+    south: float
+    north: float
+    west: float
+    east: float
+    from_: Optional[int] = field(default=None, metadata=dict(data_key="from"))
+    to: Optional[int] = None
+
+@dataclass
+class RegionIntervalModel:
+    """ A stretch of time a track may have been inside the searched region. """
+    start: int
+    end: int
+
+    def start_datetime(self) -> datetime:
+        return _utc(self.start)
+
+    def end_datetime(self) -> datetime:
+        return _utc(self.end)
+
+@dataclass
+class RegionHitModel:
+    """ A track that meets the searched region: when it may have been there, and whether that comes from its roll-ups
+    (`refined`) or only from its overall extent, which is all there is before they are built. """
+    key: str
+    name: str
+    start: int
+    end: int
+    refined: bool
+    intervals: list[RegionIntervalModel]
+
+    def start_datetime(self) -> datetime:
+        return _utc(self.start)
+
+    def end_datetime(self) -> datetime:
+        return _utc(self.end)
+
+@dataclass
+class RegionSearchResultModel:
+    """ The tracks that meet a searched region; `truncated` when more candidates matched than were refined. """
+    hits: list[RegionHitModel]
+    truncated: bool
+
+@dataclass
 class ActivityTrackMarkerModel:
     distance: float
     timeUtc: int
@@ -2783,6 +2829,14 @@ class DatasetSetModel:
     members: list[DatasetMemberModel]
     gaps: list[DatasetGapModel]
     overlap: str
+
+@dataclass
+class DatasetMemberRejectedModel:
+    """ A file that cannot join the set, with each reason. `startsNewSet` says it differs in how time is stamped and belongs
+    in a set of its own. """
+    message: str
+    reasons: list[str]
+    startsNewSet: bool
 
 @dataclass
 class DatasetDisplayVariableModel:

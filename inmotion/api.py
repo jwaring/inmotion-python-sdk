@@ -13,6 +13,7 @@ from inmotion.models import (
     DatasetRangeModel,
     DatasetSampleRequestModel,
     DatasetSampleResultModel,
+    DatasetMemberModel,
     DatasetSetModel,
     ExplorerCatalogModel,
     ExplorerClusterModel,
@@ -109,6 +110,8 @@ from inmotion.models import (
     SetModelFieldValueRequestModel,
     ShapeDetailsModel,
     ShapeGeneratorDetailsModel,
+    RegionSearchFilterModel,
+    RegionSearchResultModel,
     ShapeGeneratorModel,
     ShapeGeneratorSummaryModel,
     ShapeGeneratorUpdateModel,
@@ -146,6 +149,20 @@ class InMotionActivities(ABC):
         :param ActivitySearchFilterModel act_filter: The filter to apply to the search
         :return: The activities that match the filter
         :rtype: ActivitiesModel
+        """
+        pass
+
+    @abstractmethod
+    def search_tracks_by_region(self, region: RegionSearchFilterModel) -> RegionSearchResultModel:
+        """
+        Find the tracks of the session's account that may have been inside a latitude/longitude box, optionally during a
+        period, with the stretches of time they were there. Candidates come from each track's overall extent and are refined
+        against its roll-up position buckets; a track whose roll-ups are not built is reported over its whole extent with
+        ``refined`` false. At most the 100 most recent candidates are refined, and ``truncated`` says when there were more.
+
+        :param RegionSearchFilterModel region: The box, which must not cross the antimeridian, and the optional period
+        :return: The tracks that meet the region
+        :rtype: RegionSearchResultModel
         """
         pass
 
@@ -2115,6 +2132,20 @@ class InMotionDatasets(ABC):
         :param str key: The key of the data stream that holds the dataset
         :return: The members, the gaps and the rule for members that share time
         :rtype: DatasetSetModel
+        """
+        pass
+
+    @abstractmethod
+    def add_dataset_member(self, key: str, data_uuid: str) -> DatasetMemberModel:
+        """ Add a file, already copied to the managed file area under its data uuid, as the next member of a dataset's set.
+        The file must agree with the first member apart from time, and its stamps must not overlap a member's unless the
+        time coordinate set allows it. A member is never edited, so a replacement is a new member. Refused with the reasons
+        when the file cannot join, or is already a member
+
+        :param str key: The key of the data stream that holds the dataset
+        :param str data_uuid: The data uuid the file was placed under
+        :return: The member that was added
+        :rtype: DatasetMemberModel
         """
         pass
 
