@@ -4,6 +4,8 @@ from typing import Optional
 
 from inmotion.api import InMotionSession, InMotionActivities
 from inmotion.models import (
+    RegionSearchFilterModel,
+    RegionSearchResultModel,
     ActivitiesModel,
     ActivityAnalyticsRequestModel,
     ActivityAnalyticsResultModel,
@@ -27,7 +29,7 @@ from inmotion.models import (
     UpdateSiteActivityModel,
     UpdateTrackActivityModel,
 )
-from inmotion.utils import request_json, request_raw, stringify
+from inmotion.utils import request_json, request_raw, stringify, stringify_model
 
 
 class InMotionActivitiesImpl(InMotionActivities):
@@ -44,6 +46,14 @@ class InMotionActivitiesImpl(InMotionActivities):
                              filter_data,
                              'Failed to retrieve activities',
                              ActivitiesModel)
+
+    def search_tracks_by_region(self, region: RegionSearchFilterModel) -> RegionSearchResultModel:
+        data = stringify_model(region)
+        return request_json('POST', f"{self._prefix_path}/activities/{self._session.account}/search/region",
+                             self._session.build_headers(content=data),
+                             data,
+                             'Failed to search tracks by region',
+                             RegionSearchResultModel)
 
     def find_activities_within_time_range(self, act_filter: ActivitySearchFilterModel, start: datetime, finish: datetime) -> ActivitiesModel:
         start_millis = int(start.timestamp() * 1000)

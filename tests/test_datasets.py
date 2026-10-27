@@ -4,6 +4,8 @@ from inmotion.datasets import InMotionDatasetsImpl
 from inmotion.models import (
     DatasetDescriptionModel,
     DatasetDisplayModel,
+    DatasetMemberModel,
+    DatasetMemberRejectedModel,
     DatasetPropertiesModel,
     DatasetSampleModel,
     DatasetSamplePositionModel,
@@ -135,3 +137,14 @@ def test_a_set_with_a_gap_is_read():
 def test_a_request_is_sent_without_python_only_names():
     text = stringify(DatasetSampleRequestModel(variable="v", positions=[DatasetSamplePositionModel(longitude=1.0, latitude=2.0)]))
     assert '"positions":[{"longitude":1.0,"latitude":2.0' in text
+
+
+def test_a_member_is_added_by_its_data_uuid():
+    call = _call("add_dataset_member", "k1", "u 1")
+    assert (call.args[0], call.args[1].split("/api/latest")[1]) == ("PUT", "/datasets/k1/members/u%201")
+    assert call.args[5] is DatasetMemberModel
+
+
+def test_a_rejected_member_is_read_with_its_reasons():
+    rejected = _load(DatasetMemberRejectedModel, {"message": "no", "reasons": ["units differ"], "startsNewSet": True})
+    assert rejected.reasons == ["units differ"] and rejected.startsNewSet
