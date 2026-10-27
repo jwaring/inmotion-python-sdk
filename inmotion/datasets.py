@@ -8,6 +8,7 @@ from inmotion.models import (
     DatasetDisplayModel,
     DatasetEdgesModel,
     DatasetListingModel,
+    DatasetMemberModel,
     DatasetMappingAppliedModel,
     DatasetPropertiesModel,
     DatasetRangeModel,
@@ -125,6 +126,13 @@ class InMotionDatasetsImpl(InMotionDatasets):
                              '',
                              'Failed to retrieve dataset members',
                              DatasetSetModel)
+
+    def add_dataset_member(self, key: str, data_uuid: str) -> DatasetMemberModel:
+        return request_json('PUT', f"{self._prefix_path}/{key}/members/{quote(data_uuid, safe='')}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to add the dataset member',
+                             DatasetMemberModel)
 
     def verify_dataset_members(self, key: str, data_uuid: Optional[str] = None) -> DatasetSetModel:
         qs = _query_string(dataUuid=data_uuid)

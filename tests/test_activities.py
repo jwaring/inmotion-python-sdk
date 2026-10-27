@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from inmotion.activities import InMotionActivitiesImpl
-from inmotion.models import ActivitySearchFilterModel, ActivityAnalyticsRequestModel, ActivityBatchCommandsModel, ActivityUpdateResponseModel, CoordinateConvention
+from inmotion.models import RegionSearchFilterModel, RegionSearchResultModel, ActivitySearchFilterModel, ActivityAnalyticsRequestModel, ActivityBatchCommandsModel, ActivityUpdateResponseModel, CoordinateConvention
 
 
 def _fake_session():
@@ -307,3 +307,22 @@ def test_find_activities_loads_a_summary_carrying_retention_locked():
         result = impl.find_activities(ActivitySearchFilterModel())
 
     assert result.activities[0].activity.retentionLocked is True
+
+
+def test_search_tracks_by_region_posts_the_box_and_reads_the_hits():
+    impl = InMotionActivitiesImpl(_fake_session())
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {
+        "hits": [{"key": "t1", "name": "Run", "start": 1000, "end": 5000, "refined": True, "intervals": [{"start": 1000, "end": 2000}]}],
+        "truncated": False,
+    }
+
+    with patch("inmotion.utils._http_session.request", return_value=mock_response) as mock_request:
+        result = impl.search_tracks_by_region(RegionSearchFilterModel(south=-34.0, north=-33.0, west=150.0, east=151.0, from_=1000))
+
+    assert isinstance(result, RegionSearchResultModel)
+    assert result.hits[0].key == "t1" and result.hits[0].intervals[0].end == 2000 and not result.truncated
+    assert mock_request.call_args.args[0] == "POST"
+    assert mock_request.call_args.args[1] == "http://example.test/api/v2/activities/my-account/search/region"
+    body = mock_request.call_args.kwargs["data"]
+    assert '"from":1000' in body and '"from_"' not in body and '"south":-34.0' in body
