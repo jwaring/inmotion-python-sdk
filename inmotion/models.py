@@ -2776,6 +2776,85 @@ class DatasetSampleResultModel:
     comparison: Optional[DatasetComparisonModel] = None
 
 @dataclass
+class DatasetProfileModel:
+    """ One profile of a profile collection: its `index` in the source, and where and when it was made. `time` is in
+    milliseconds since the epoch. """
+    index: int
+    longitude: float
+    latitude: float
+    time: int
+
+    def time_datetime(self) -> datetime:
+        return _utc(self.time)
+
+@dataclass
+class DatasetProfileListModel:
+    """ The profiles that match, by time. `total` is how many match, and `truncated` is true when `profiles` holds fewer. """
+    total: int
+    profiles: list[DatasetProfileModel]
+    truncated: bool
+
+@dataclass
+class DatasetProfileLevelsModel:
+    """ The levels of a profile. `positive` is `up` or `down`, the way the values count from `relativeTo`. """
+    positive: str
+    relativeTo: str
+    values: list[Optional[float]]
+
+@dataclass
+class DatasetProfileVariableModel:
+    """ One variable of a profile, with a value for each level and None where one is missing. """
+    name: str
+    values: list[Optional[float]]
+    title: Optional[str] = None
+    units: Optional[str] = None
+
+@dataclass
+class DatasetProfileDataModel:
+    """ A profile with its levels and values. `levels` is None for a collection with no vertical axis, whose variables
+    have one value. """
+    profile: DatasetProfileModel
+    variables: list[DatasetProfileVariableModel]
+    levels: Optional[DatasetProfileLevelsModel] = None
+
+@dataclass
+class DatasetTransectEntryModel:
+    """ A profile of a transect: where it is along the line, in kilometres from its first profile. """
+    index: int
+    distanceKm: float
+    longitude: float
+    latitude: float
+    time: int
+
+    def time_datetime(self) -> datetime:
+        return _utc(self.time)
+
+@dataclass
+class DatasetTransectModel:
+    """ A line of profiles made one after another, in time order. `id` counts the lines of a collection from 0. """
+    id: int
+    lengthKm: float
+    profiles: list[DatasetTransectEntryModel]
+
+@dataclass
+class DatasetTransectListModel:
+    """ The lines the profiles of a collection make. """
+    transects: list[DatasetTransectModel]
+
+@dataclass
+class DatasetTransectProfileModel:
+    """ The levels and values of one profile of a transect, by its `index`. """
+    index: int
+    variables: list[DatasetProfileVariableModel]
+    levels: Optional[DatasetProfileLevelsModel] = None
+
+@dataclass
+class DatasetTransectSectionModel:
+    """ The profiles along a transect, in the order along it, for a section of values by distance and depth. """
+    transect: DatasetTransectModel
+    profiles: list[DatasetTransectProfileModel]
+
+@dataclass
 class DatasetRangeModel:
     """ The range colours run between where none is chosen: the 2nd to the 98th percentile of the variable over the
     dataset's extent. """

@@ -12,6 +12,10 @@ from inmotion.models import (
     DatasetSampleRequestModel,
     DatasetSampleResultModel,
     DatasetSetModel,
+    DatasetProfileDataModel,
+    DatasetProfileListModel,
+    DatasetTransectListModel,
+    DatasetTransectSectionModel,
 )
 from inmotion.utils import response_schema, stringify
 
@@ -148,3 +152,54 @@ def test_a_member_is_added_by_its_data_uuid():
 def test_a_rejected_member_is_read_with_its_reasons():
     rejected = _load(DatasetMemberRejectedModel, {"message": "no", "reasons": ["units differ"], "startsNewSet": True})
     assert rejected.reasons == ["units differ"] and rejected.startsNewSet
+
+
+def test_profiles_are_listed_with_the_filters_given():
+    call = _call("find_dataset_profiles", "k1", bbox="115,-32,116,-31", time_from="2004-06-02T00:00:00Z", limit=50)
+    assert call.args[0] == "GET"
+    assert call.args[1].split("/api/latest")[1] == "/datasets/k1/profiles?bbox=115%2C-32%2C116%2C-31&from=2004-06-02T00%3A00%3A00Z&limit=50"
+    assert call.args[5] is DatasetProfileListModel
+    assert _call("find_dataset_profiles", "k1").args[1].endswith("/datasets/k1/profiles")
+
+
+def test_a_profile_is_read_by_index_with_the_variables_named():
+    call = _call("find_dataset_profile", "k1", 3, variables=["temp", "salt"])
+    assert call.args[1].split("/api/latest")[1] == "/datasets/k1/profiles/3?variables=temp%2Csalt"
+    assert call.args[5] is DatasetProfileDataModel
+    assert _call("find_dataset_profile", "k1", 3).args[1].endswith("/datasets/k1/profiles/3")
+
+
+def test_transects_and_a_section_take_the_gaps_given():
+    transects = _call("find_dataset_transects", "k1", gap_hours=24, gap_km=100)
+    assert transects.args[1].split("/api/latest")[1] == "/datasets/k1/transects?gapHours=24&gapKm=100"
+    assert transects.args[5] is DatasetTransectListModel
+    section = _call("find_dataset_transect_section", "k1", 0, variables=["temp"], gap_hours=24)
+    assert section.args[1].split("/api/latest")[1] == "/datasets/k1/transects/0?variables=temp&gapHours=24"
+    assert section.args[5] is DatasetTransectSectionModel
+
+
+def test_a_profile_is_read_with_gaps_in_its_values():
+    profile = _load(DatasetProfileDataModel, {
+        "profile": {"index": 1, "longitude": 115.6, "latitude": -31.7, "time": 1086048000000},
+        "levels": {"positive": "down", "relativeTo": "surface", "values": [1.0, 2.0]},
+        "variables": [{"name": "temp", "units": "degC", "values": [20.0, None]}],
+    })
+    assert profile.profile.time_datetime().isoformat() == "2004-06-01T00:00:00+00:00"
+    assert profile.levels.positive == "down" and profile.variables[0].values == [20.0, None]
+    assert profile.variables[0].title is None
+
+
+def test_a_profile_with_no_vertical_axis_has_no_levels():
+    profile = _load(DatasetProfileDataModel, {
+        "profile": {"index": 0, "longitude": 1.0, "latitude": 2.0, "time": 0},
+        "variables": [{"name": "bottom", "values": [30.0]}],
+    })
+    assert profile.levels is None
+
+
+def test_a_transect_section_is_read():
+    section = _load(DatasetTransectSectionModel, {
+        "transect": {"id": 0, "lengthKm": 12.5, "profiles": [{"index": 1, "distanceKm": 0.0, "longitude": 1.0, "latitude": 2.0, "time": 0}]},
+        "profiles": [{"index": 1, "variables": [{"name": "temp", "values": [1.0]}]}],
+    })
+    assert section.transect.profiles[0].distanceKm == 0.0 and section.profiles[0].index == 1

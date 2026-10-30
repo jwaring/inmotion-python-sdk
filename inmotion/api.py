@@ -14,6 +14,10 @@ from inmotion.models import (
     DatasetSampleRequestModel,
     DatasetSampleResultModel,
     DatasetMemberModel,
+    DatasetProfileDataModel,
+    DatasetProfileListModel,
+    DatasetTransectListModel,
+    DatasetTransectSectionModel,
     DatasetSetModel,
     ExplorerCatalogModel,
     ExplorerClusterModel,
@@ -2122,6 +2126,64 @@ class InMotionDatasets(ABC):
         :param str display: The display config, as YAML (or JSON) text, with keys such as ``fill_mode`` and ``axis_range``
         :return: The display as stored
         :rtype: DatasetDisplayModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dataset_profiles(self, key: str, bbox: Optional[str] = None, time_from: Optional[str] = None,
+                              time_to: Optional[str] = None, limit: Optional[int] = None) -> DatasetProfileListModel:
+        """ List the profiles of a profile collection by time, with where and when each was made. A profile is named by
+        its index, which is its position in the source.
+
+        :param str key: The key of the data stream that holds the dataset
+        :param Optional[str] bbox: Only the profiles in this box, as ``west,south,east,north`` in degrees. A box with east less than west crosses the antimeridian
+        :param Optional[str] time_from: Only the profiles made at or after this instant, such as ``2025-02-10T02:00:00Z``
+        :param Optional[str] time_to: Only the profiles made at or before this instant
+        :param Optional[int] limit: The most profiles to list, and at most 20000
+        :return: The profiles, how many match, and whether the list was cut short
+        :rtype: DatasetProfileListModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dataset_profile(self, key: str, profile: int, variables: Optional[list[str]] = None) -> DatasetProfileDataModel:
+        """ Find the levels of a profile of a profile collection, and its values of each variable at them
+
+        :param str key: The key of the data stream that holds the dataset
+        :param int profile: The index of the profile
+        :param Optional[list[str]] variables: The variables to read, or all of them when none are named
+        :return: The profile with its levels and values
+        :rtype: DatasetProfileDataModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dataset_transects(self, key: str, gap_hours: Optional[float] = None,
+                               gap_km: Optional[float] = None) -> DatasetTransectListModel:
+        """ Find the lines the profiles of a profile collection make. Profiles made one after another, each soon after
+        and near the one before, are a line, numbered from 0 in time order.
+
+        :param str key: The key of the data stream that holds the dataset
+        :param Optional[float] gap_hours: The longest time between profiles of a line, in hours. By default from the spacing of the profiles, between 12 and 72
+        :param Optional[float] gap_km: The furthest apart profiles of a line are, in kilometres. By default from the spacing of the profiles, between 30 and 300
+        :return: The lines
+        :rtype: DatasetTransectListModel
+        """
+        pass
+
+    @abstractmethod
+    def find_dataset_transect_section(self, key: str, transect: int, variables: Optional[list[str]] = None,
+                                      gap_hours: Optional[float] = None,
+                                      gap_km: Optional[float] = None) -> DatasetTransectSectionModel:
+        """ Find the values down each profile of a transect, in the order along it, for a section by distance and depth
+
+        :param str key: The key of the data stream that holds the dataset
+        :param int transect: The number of the line, from 0
+        :param Optional[list[str]] variables: The variables to read, or all of them when none are named
+        :param Optional[float] gap_hours: As for :meth:`find_dataset_transects`, so that the line is the same one
+        :param Optional[float] gap_km: As for :meth:`find_dataset_transects`
+        :return: The line and the profiles along it
+        :rtype: DatasetTransectSectionModel
         """
         pass
 
