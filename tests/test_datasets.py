@@ -122,10 +122,10 @@ def test_a_sample_result_with_a_comparison_is_read():
 def test_a_display_with_the_vegetation_index_is_read():
     display = _load(DatasetDisplayModel, {
         "variables": {"nir": {"axisRange": [0.0, 1.0], "ramp": "viridis"}},
-        "view": {"variable": "nir", "fillMode": "ndvi", "ndvi": {"nir": "band_5", "red": "band_3"}},
+        "view": {"variable": "nir", "fillMode": "normalised_difference", "normalisedDifference": {"first": "band_5", "second": "band_3"}},
     })
-    assert display.view.fillMode == "ndvi"
-    assert display.view.ndvi.red == "band_3"
+    assert display.view.fillMode == "normalised_difference"
+    assert display.view.normalisedDifference.second == "band_3"
     assert display.variables["nir"].axisRange == [0.0, 1.0]
 
 

@@ -421,17 +421,17 @@ A request over the cost limit is refused with an error that gives the largest wi
 it is never truncated.
 
 How a dataset is first shown is its display config. It is replaced with YAML (or JSON) text, with keys such as
-`fill_mode` (`image`, `bands`, `composite` or `ndvi`) and `axis_range`, and refused with each thing wrong at its
+`fill_mode` (`image`, `bands`, `composite` or `normalised_difference`) and `axis_range`, and refused with each thing wrong at its
 path if it does not agree with the mapping:
 
 ```python
 ds_api.update_dataset_display(key, """
 view:
   variable: band_5
-  fill_mode: ndvi
-  ndvi: { nir: band_5, red: band_3 }
+  fill_mode: normalised_difference
+  normalised_difference: { first: band_5, second: band_3 }
 """)
-display = ds_api.find_dataset_display(key)    # display.view.fillMode == "ndvi"
+display = ds_api.find_dataset_display(key)    # display.view.fillMode == "normalised_difference"
 ```
 
 A dataset whose mapping says it is a collection of profiles (ocean casts, boreholes, soundings: each one a position

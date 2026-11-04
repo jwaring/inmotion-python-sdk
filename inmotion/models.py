@@ -2970,10 +2970,10 @@ class DatasetDisplayCompositeModel:
     blue: Optional[DatasetDisplayChannelModel] = None
 
 @dataclass
-class DatasetDisplayNdviModel:
-    """ A vegetation index drawn from a near infrared and a red variable, (nir - red) / (nir + red). """
-    nir: Optional[str] = None
-    red: Optional[str] = None
+class DatasetDisplayNormalisedDifferenceModel:
+    """ A fill drawn as the normalised difference of two variables, (first - second) / (first + second). """
+    first: Optional[str] = None
+    second: Optional[str] = None
 
 @dataclass
 class DatasetDisplaySectionModel:
@@ -2984,7 +2984,7 @@ class DatasetDisplaySectionModel:
 
 @dataclass
 class DatasetDisplayViewModel:
-    """ How a dataset is first shown on a map. `fillMode` is `image`, `bands`, `composite` or `ndvi`. """
+    """ How a dataset is first shown on a map. `fillMode` is `image`, `bands`, `composite` or `normalised_difference`. """
     variable: Optional[str] = None
     fillMode: Optional[str] = None
     fillLevels: Optional[str] = None
@@ -2996,7 +2996,7 @@ class DatasetDisplayViewModel:
     vectors: Optional[DatasetDisplayVectorsModel] = None
     section: Optional[DatasetDisplaySectionModel] = None
     composite: Optional[DatasetDisplayCompositeModel] = None
-    ndvi: Optional[DatasetDisplayNdviModel] = None
+    normalisedDifference: Optional[DatasetDisplayNormalisedDifferenceModel] = None
 
 @dataclass
 class DatasetDisplayModel:
