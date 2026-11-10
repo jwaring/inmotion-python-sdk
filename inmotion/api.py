@@ -313,25 +313,31 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecordsModel:
+    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime],
+                          units: Optional[str] = None) -> TrackRecordsModel:
         """ Retrieve records from inMotion within the requested time-period
 
         :param str track_key: The unique key of the track activity to retrieve records from
         :param Optional[datetime] start_time: The start of the time range (inclusive)
         :param Optional[datetime] end_time: The end of the time range (inclusive)
+        :param Optional[str] units: Pass 'base' to receive the values in the units they are stored in, not the display
+            units of the user's unit system. The units are named in the response metadata.
         :return: The records for the track activity within the specified time range
         :rtype: TrackRecords
         """
         pass
 
     @abstractmethod
-    def find_all_track_records(self, track_key: str, after: Optional[datetime] = None) -> TrackRecordsModel:
+    def find_all_track_records(self, track_key: str, after: Optional[datetime] = None,
+                               units: Optional[str] = None) -> TrackRecordsModel:
         """ Retrieve the records for a track activity, without an upper time restriction
 
         :param str track_key: The unique key of the track activity to retrieve records from
         :param Optional[datetime] after: If given, only records recorded after this time are returned. The
             statistics and markers are still those of the whole track, and `lastRecorded` on the result
             gives the time of the track's final record - pass it back as `after` to poll for new records.
+        :param Optional[str] units: Pass 'base' to receive the values in the units they are stored in, not the display
+            units of the user's unit system. The units are named in the response metadata.
         :return: The records for the track activity
         :rtype: TrackRecordsModel
         """
@@ -509,25 +515,31 @@ class InMotionActivities(ABC):
         pass
 
     @abstractmethod
-    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecordsModel:
+    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime],
+                         units: Optional[str] = None) -> SiteRecordsModel:
         """ Retrieve records from inMotion within the requested time-period
 
         :param str site_key: The unique key of the site activity to retrieve records from
         :param Optional[datetime] start_time: The start of the time range (inclusive)
         :param Optional[datetime] end_time: The end of the time range (inclusive)
+        :param Optional[str] units: Pass 'base' to receive the values in the units they are stored in, not the display
+            units of the user's unit system. The units are named in the response metadata.
         :return: The records for the site activity within the specified time range
         :rtype: SiteRecords
         """
         pass
 
     @abstractmethod
-    def find_all_site_records(self, site_key: str, after: Optional[datetime] = None) -> SiteRecordsModel:
+    def find_all_site_records(self, site_key: str, after: Optional[datetime] = None,
+                              units: Optional[str] = None) -> SiteRecordsModel:
         """ Retrieve all records for a site activity, without a time range restriction
 
         :param str site_key: The unique key of the site activity to retrieve records from
         :param Optional[datetime] after: If given, only records recorded after this time are returned. The
             statistics are still those of all the records, and `lastRecorded` on the result gives the time
             of the final record - pass it back as `after` to poll for new records.
+        :param Optional[str] units: Pass 'base' to receive the values in the units they are stored in, not the display
+            units of the user's unit system. The units are named in the response metadata.
         :return: All records for the site activity
         :rtype: SiteRecordsModel
         """

@@ -1863,13 +1863,13 @@ class RegionSearchResultModel:
 @dataclass
 class ActivityTrackMarkerModel:
     distance: float
-    timeUtc: int
+    time: int
     latitude: float
     longitude: float
     altitude: float
 
     def time_utc_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.timeUtc / 1000.0)
+        return datetime.fromtimestamp(self.time / 1000.0)
 
 @dataclass
 class ActivityTrackMetricsModel:
@@ -1908,22 +1908,22 @@ class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
         return datetime.fromtimestamp(self.finishTime / 1000.0)
 
 @dataclass
-class ActivityTrackDateTimeIntervalStatisticsModel:
-    startInterval: int
-    finishInterval: int
-    blockStats: ActivityTrackBlockStatisticsModel
+class ActivityTrackDateTimeIntervalStatisticsModel(ActivityTrackBlockStatisticsModel):
+    """ The statistics of one stretch of a track by time: the block statistics, with the interval it covers. """
+    intervalStart: int = field(kw_only=True)
+    intervalFinish: int = field(kw_only=True)
 
     def start_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.startInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalStart / 1000.0)
 
     def finish_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.finishInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalFinish / 1000.0)
 
 @dataclass
-class ActivityTrackDistanceIntervalStatisticsModel:
-    startInterval: float
-    finishInterval: float
-    blockStats: ActivityTrackBlockStatisticsModel
+class ActivityTrackDistanceIntervalStatisticsModel(ActivityTrackBlockStatisticsModel):
+    """ The statistics of one stretch of a track by distance: the block statistics, with the interval it covers. """
+    intervalStart: float = field(kw_only=True)
+    intervalFinish: float = field(kw_only=True)
 
 @dataclass
 class TrackIntervalStatisticsModel:
@@ -1974,16 +1974,16 @@ class ActivitySiteBlockStatisticsModel(ActivityBlockStatisticsModel):
         return datetime.fromtimestamp(self.finishTime / 1000.0)
 
 @dataclass
-class ActivitySiteDateTimeIntervalStatisticsModel:
-    startInterval: int
-    finishInterval: int
-    blockStats: ActivitySiteBlockStatisticsModel
+class ActivitySiteDateTimeIntervalStatisticsModel(ActivitySiteBlockStatisticsModel):
+    """ The statistics of one stretch of a site: the block statistics, with the interval it covers. """
+    intervalStart: int = field(kw_only=True)
+    intervalFinish: int = field(kw_only=True)
 
     def start_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.startInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalStart / 1000.0)
 
     def finish_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.finishInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalFinish / 1000.0)
 
 @dataclass
 class SiteIntervalStatisticsModel:
