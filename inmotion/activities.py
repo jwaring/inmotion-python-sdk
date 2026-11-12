@@ -32,6 +32,16 @@ from inmotion.models import (
 from inmotion.utils import request_json, request_raw, stringify, stringify_model
 
 
+def _query(**params) -> str:
+    """A query string of the parameters that are set, or none."""
+    given = {k: v for k, v in params.items() if v is not None}
+    return '?' + '&'.join(f'{k}={v}' for k, v in given.items()) if given else ''
+
+
+def _units_query(units: Optional[str]) -> str:
+    return _query(units=units)
+
+
 class InMotionActivitiesImpl(InMotionActivities):
 
     def __init__(self, session: InMotionSession):
@@ -171,17 +181,21 @@ class InMotionActivitiesImpl(InMotionActivities):
                      '',
                      'Failed to unlock track activity')
 
-    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> TrackRecordsModel:
+    def get_track_records(self, track_key: str, start_time: Optional[datetime], end_time: Optional[datetime],
+                          units: Optional[str] = None) -> TrackRecordsModel:
         start_millis = int(start_time.timestamp() * 1000) if start_time else 0
         end_millis = int(end_time.timestamp() * 1000) if end_time else 0
-        return request_json('GET', f"{self._prefix_path}/activity/track/records/{track_key}/{start_millis}/{end_millis}",
+        return request_json('GET', f"{self._prefix_path}/activity/track/records/{track_key}/{start_millis}/{end_millis}{_units_query(units)}",
                              self._session.build_headers(content=''),
                              '',
                              'Failed to retrieve track records',
                              TrackRecordsModel)
 
-    def find_all_track_records(self, track_key: str, after: Optional[datetime] = None) -> TrackRecordsModel:
-        query = f"?after={int(after.timestamp() * 1000)}" if after else ''
+    def find_all_track_records(self, track_key: str, after: Optional[datetime] = None,
+                               units: Optional[str] = None) -> TrackRecordsModel:
+        """ All the records of a track, or those after a time. `units='base'` returns them in the units they are stored
+        in, not the display units of the user's unit system; the units are named in the response metadata. """
+        query = _query(after=int(after.timestamp() * 1000) if after else None, units=units)
         return request_json('GET', f"{self._prefix_path}/activity/track/records/{track_key}{query}",
                              self._session.build_headers(content=''),
                              '',
@@ -310,17 +324,21 @@ class InMotionActivitiesImpl(InMotionActivities):
                      '',
                      'Failed to unlock site activity')
 
-    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime]) -> SiteRecordsModel:
+    def get_site_records(self, site_key: str, start_time: Optional[datetime], end_time: Optional[datetime],
+                         units: Optional[str] = None) -> SiteRecordsModel:
         start_millis = int(start_time.timestamp() * 1000) if start_time else 0
         end_millis = int(end_time.timestamp() * 1000) if end_time else 0
-        return request_json('GET', f"{self._prefix_path}/activity/site/records/{site_key}/{start_millis}/{end_millis}",
+        return request_json('GET', f"{self._prefix_path}/activity/site/records/{site_key}/{start_millis}/{end_millis}{_units_query(units)}",
                              self._session.build_headers(content=''),
                              '',
                              'Failed to retrieve site records',
                              SiteRecordsModel)
 
-    def find_all_site_records(self, site_key: str, after: Optional[datetime] = None) -> SiteRecordsModel:
-        query = f"?after={int(after.timestamp() * 1000)}" if after else ''
+    def find_all_site_records(self, site_key: str, after: Optional[datetime] = None,
+                              units: Optional[str] = None) -> SiteRecordsModel:
+        """ All the records of a site, or those after a time. `units='base'` returns them in the units they are stored
+        in, not the display units of the user's unit system; the units are named in the response metadata. """
+        query = _query(after=int(after.timestamp() * 1000) if after else None, units=units)
         return request_json('GET', f"{self._prefix_path}/activity/site/records/{site_key}{query}",
                              self._session.build_headers(content=''),
                              '',

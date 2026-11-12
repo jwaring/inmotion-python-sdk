@@ -10,11 +10,15 @@ from inmotion.models import (
     DatasetListingModel,
     DatasetMemberModel,
     DatasetMappingAppliedModel,
+    DatasetProfileDataModel,
+    DatasetProfileListModel,
     DatasetPropertiesModel,
     DatasetRangeModel,
     DatasetSampleRequestModel,
     DatasetSampleResultModel,
     DatasetSetModel,
+    DatasetTransectListModel,
+    DatasetTransectSectionModel,
 )
 from inmotion.utils import request_json, request_raw, stringify
 
@@ -119,6 +123,42 @@ class InMotionDatasetsImpl(InMotionDatasets):
                              display,
                              'Failed to update dataset display',
                              DatasetDisplayModel)
+
+    def find_dataset_profiles(self, key: str, bbox: Optional[str] = None, time_from: Optional[str] = None,
+                              time_to: Optional[str] = None, limit: Optional[int] = None) -> DatasetProfileListModel:
+        qs = _query_string(bbox=bbox, **{'from': time_from}, to=time_to, limit=limit)
+        return request_json('GET', f"{self._prefix_path}/{key}/profiles{qs}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to find dataset profiles',
+                             DatasetProfileListModel)
+
+    def find_dataset_profile(self, key: str, profile: int, variables: Optional[list[str]] = None) -> DatasetProfileDataModel:
+        qs = _query_string(variables=','.join(variables) if variables else None)
+        return request_json('GET', f"{self._prefix_path}/{key}/profiles/{profile}{qs}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve dataset profile',
+                             DatasetProfileDataModel)
+
+    def find_dataset_transects(self, key: str, gap_hours: Optional[float] = None,
+                               gap_km: Optional[float] = None) -> DatasetTransectListModel:
+        qs = _query_string(gapHours=gap_hours, gapKm=gap_km)
+        return request_json('GET', f"{self._prefix_path}/{key}/transects{qs}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to find dataset transects',
+                             DatasetTransectListModel)
+
+    def find_dataset_transect_section(self, key: str, transect: int, variables: Optional[list[str]] = None,
+                                      gap_hours: Optional[float] = None,
+                                      gap_km: Optional[float] = None) -> DatasetTransectSectionModel:
+        qs = _query_string(variables=','.join(variables) if variables else None, gapHours=gap_hours, gapKm=gap_km)
+        return request_json('GET', f"{self._prefix_path}/{key}/transects/{transect}{qs}",
+                             self._session.build_headers(content=''),
+                             '',
+                             'Failed to retrieve dataset transect section',
+                             DatasetTransectSectionModel)
 
     def find_dataset_members(self, key: str) -> DatasetSetModel:
         return request_json('GET', f"{self._prefix_path}/{key}/members",

@@ -1863,13 +1863,13 @@ class RegionSearchResultModel:
 @dataclass
 class ActivityTrackMarkerModel:
     distance: float
-    timeUtc: int
+    time: int
     latitude: float
     longitude: float
     altitude: float
 
     def time_utc_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.timeUtc / 1000.0)
+        return datetime.fromtimestamp(self.time / 1000.0)
 
 @dataclass
 class ActivityTrackMetricsModel:
@@ -1908,22 +1908,22 @@ class ActivityTrackBlockStatisticsModel(ActivityBlockStatisticsModel):
         return datetime.fromtimestamp(self.finishTime / 1000.0)
 
 @dataclass
-class ActivityTrackDateTimeIntervalStatisticsModel:
-    startInterval: int
-    finishInterval: int
-    blockStats: ActivityTrackBlockStatisticsModel
+class ActivityTrackDateTimeIntervalStatisticsModel(ActivityTrackBlockStatisticsModel):
+    """ The statistics of one stretch of a track by time: the block statistics, with the interval it covers. """
+    intervalStart: int = field(kw_only=True)
+    intervalFinish: int = field(kw_only=True)
 
     def start_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.startInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalStart / 1000.0)
 
     def finish_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.finishInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalFinish / 1000.0)
 
 @dataclass
-class ActivityTrackDistanceIntervalStatisticsModel:
-    startInterval: float
-    finishInterval: float
-    blockStats: ActivityTrackBlockStatisticsModel
+class ActivityTrackDistanceIntervalStatisticsModel(ActivityTrackBlockStatisticsModel):
+    """ The statistics of one stretch of a track by distance: the block statistics, with the interval it covers. """
+    intervalStart: float = field(kw_only=True)
+    intervalFinish: float = field(kw_only=True)
 
 @dataclass
 class TrackIntervalStatisticsModel:
@@ -1974,16 +1974,16 @@ class ActivitySiteBlockStatisticsModel(ActivityBlockStatisticsModel):
         return datetime.fromtimestamp(self.finishTime / 1000.0)
 
 @dataclass
-class ActivitySiteDateTimeIntervalStatisticsModel:
-    startInterval: int
-    finishInterval: int
-    blockStats: ActivitySiteBlockStatisticsModel
+class ActivitySiteDateTimeIntervalStatisticsModel(ActivitySiteBlockStatisticsModel):
+    """ The statistics of one stretch of a site: the block statistics, with the interval it covers. """
+    intervalStart: int = field(kw_only=True)
+    intervalFinish: int = field(kw_only=True)
 
     def start_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.startInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalStart / 1000.0)
 
     def finish_interval_datetime(self) -> datetime:
-        return datetime.fromtimestamp(self.finishInterval / 1000.0)
+        return datetime.fromtimestamp(self.intervalFinish / 1000.0)
 
 @dataclass
 class SiteIntervalStatisticsModel:
@@ -2776,6 +2776,85 @@ class DatasetSampleResultModel:
     comparison: Optional[DatasetComparisonModel] = None
 
 @dataclass
+class DatasetProfileModel:
+    """ One profile of a profile collection: its `index` in the source, and where and when it was made. `time` is in
+    milliseconds since the epoch. """
+    index: int
+    longitude: float
+    latitude: float
+    time: int
+
+    def time_datetime(self) -> datetime:
+        return _utc(self.time)
+
+@dataclass
+class DatasetProfileListModel:
+    """ The profiles that match, by time. `total` is how many match, and `truncated` is true when `profiles` holds fewer. """
+    total: int
+    profiles: list[DatasetProfileModel]
+    truncated: bool
+
+@dataclass
+class DatasetProfileLevelsModel:
+    """ The levels of a profile. `positive` is `up` or `down`, the way the values count from `relativeTo`. """
+    positive: str
+    relativeTo: str
+    values: list[Optional[float]]
+
+@dataclass
+class DatasetProfileVariableModel:
+    """ One variable of a profile, with a value for each level and None where one is missing. """
+    name: str
+    values: list[Optional[float]]
+    title: Optional[str] = None
+    units: Optional[str] = None
+
+@dataclass
+class DatasetProfileDataModel:
+    """ A profile with its levels and values. `levels` is None for a collection with no vertical axis, whose variables
+    have one value. """
+    profile: DatasetProfileModel
+    variables: list[DatasetProfileVariableModel]
+    levels: Optional[DatasetProfileLevelsModel] = None
+
+@dataclass
+class DatasetTransectEntryModel:
+    """ A profile of a transect: where it is along the line, in kilometres from its first profile. """
+    index: int
+    distanceKm: float
+    longitude: float
+    latitude: float
+    time: int
+
+    def time_datetime(self) -> datetime:
+        return _utc(self.time)
+
+@dataclass
+class DatasetTransectModel:
+    """ A line of profiles made one after another, in time order. `id` counts the lines of a collection from 0. """
+    id: int
+    lengthKm: float
+    profiles: list[DatasetTransectEntryModel]
+
+@dataclass
+class DatasetTransectListModel:
+    """ The lines the profiles of a collection make. """
+    transects: list[DatasetTransectModel]
+
+@dataclass
+class DatasetTransectProfileModel:
+    """ The levels and values of one profile of a transect, by its `index`. """
+    index: int
+    variables: list[DatasetProfileVariableModel]
+    levels: Optional[DatasetProfileLevelsModel] = None
+
+@dataclass
+class DatasetTransectSectionModel:
+    """ The profiles along a transect, in the order along it, for a section of values by distance and depth. """
+    transect: DatasetTransectModel
+    profiles: list[DatasetTransectProfileModel]
+
+@dataclass
 class DatasetRangeModel:
     """ The range colours run between where none is chosen: the 2nd to the 98th percentile of the variable over the
     dataset's extent. """
@@ -2891,10 +2970,10 @@ class DatasetDisplayCompositeModel:
     blue: Optional[DatasetDisplayChannelModel] = None
 
 @dataclass
-class DatasetDisplayNdviModel:
-    """ A vegetation index drawn from a near infrared and a red variable, (nir - red) / (nir + red). """
-    nir: Optional[str] = None
-    red: Optional[str] = None
+class DatasetDisplayNormalisedDifferenceModel:
+    """ A fill drawn as the normalised difference of two variables, (first - second) / (first + second). """
+    first: Optional[str] = None
+    second: Optional[str] = None
 
 @dataclass
 class DatasetDisplaySectionModel:
@@ -2905,7 +2984,7 @@ class DatasetDisplaySectionModel:
 
 @dataclass
 class DatasetDisplayViewModel:
-    """ How a dataset is first shown on a map. `fillMode` is `image`, `bands`, `composite` or `ndvi`. """
+    """ How a dataset is first shown on a map. `fillMode` is `image`, `bands`, `composite` or `normalised_difference`. """
     variable: Optional[str] = None
     fillMode: Optional[str] = None
     fillLevels: Optional[str] = None
@@ -2917,7 +2996,7 @@ class DatasetDisplayViewModel:
     vectors: Optional[DatasetDisplayVectorsModel] = None
     section: Optional[DatasetDisplaySectionModel] = None
     composite: Optional[DatasetDisplayCompositeModel] = None
-    ndvi: Optional[DatasetDisplayNdviModel] = None
+    normalisedDifference: Optional[DatasetDisplayNormalisedDifferenceModel] = None
 
 @dataclass
 class DatasetDisplayModel:

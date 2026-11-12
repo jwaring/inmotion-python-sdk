@@ -294,6 +294,31 @@ def test_find_all_track_records_after_adds_after_query():
     assert mock_request_json.call_args.args[1] == "http://example.test/api/v2/activity/track/records/trk1?after=1704067200000"
 
 
+def _requested_url(call):
+    impl = InMotionActivitiesImpl(_fake_session())
+    with patch("inmotion.activities.request_json", return_value=MagicMock()) as mock_request_json:
+        call(impl)
+    return mock_request_json.call_args.args[1]
+
+
+def test_record_reads_can_ask_for_the_stored_units():
+    base = "http://example.test/api/v2/activity"
+    after = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+    assert _requested_url(lambda a: a.find_all_track_records("t", units="base")) == f"{base}/track/records/t?units=base"
+    assert _requested_url(lambda a: a.find_all_track_records("t", after=after, units="base")) == f"{base}/track/records/t?after=1704067200000&units=base"
+    assert _requested_url(lambda a: a.get_track_records("t", after, after, units="base")) == f"{base}/track/records/t/1704067200000/1704067200000?units=base"
+    assert _requested_url(lambda a: a.find_all_site_records("s", units="base")) == f"{base}/site/records/s?units=base"
+    assert _requested_url(lambda a: a.get_site_records("s", after, after, units="base")) == f"{base}/site/records/s/1704067200000/1704067200000?units=base"
+
+
+def test_record_reads_ask_for_no_units_by_default():
+    base = "http://example.test/api/v2/activity"
+
+    assert _requested_url(lambda a: a.find_all_track_records("t")) == f"{base}/track/records/t"
+    assert _requested_url(lambda a: a.get_site_records("s", None, None)) == f"{base}/site/records/s/0/0"
+
+
 def test_find_activities_loads_a_summary_carrying_retention_locked():
     impl = InMotionActivitiesImpl(_fake_session())
 
@@ -326,3 +351,33 @@ def test_search_tracks_by_region_posts_the_box_and_reads_the_hits():
     assert mock_request.call_args.args[1] == "http://example.test/api/v2/activities/my-account/search/region"
     body = mock_request.call_args.kwargs["data"]
     assert '"from":1000' in body and '"from_"' not in body and '"south":-34.0' in body
+
+
+_VARIABLE_STATS = {"nObs": 3, "minimum": 1.0, "p20": 1.1, "p50": 2.0, "avg": 2.0, "p80": 2.9, "maximum": 3.0}
+_BLOCK = {"nRecords": 3, "startTime": 1000, "finishTime": 5000, "duration": 4000, "displacement": 1.5, "distance": 2.5,
+          "ascent": 1.0, "descent": 0.5, "statistics": {"altitude": _VARIABLE_STATS}}
+
+
+def test_track_records_load_the_markers_and_interval_statistics_as_the_server_sends_them():
+    from inmotion.models import TrackRecordsModel
+    from inmotion.utils import response_schema
+
+    body = {
+        "records": {"timeUtc": [1000, 2000, 5000]},
+        "metadata": {},
+        "markers": [{"distance": 1, "time": 2000, "latitude": -31.9, "longitude": 116.0, "altitude": 84.5}],
+        "statistics": {
+            "totals": _BLOCK,
+            "intervals": {
+                "byTime": [{**_BLOCK, "intervalStart": 1000, "intervalFinish": 3000}],
+                "byDistance": [{**_BLOCK, "intervalStart": 0.0, "intervalFinish": 1.0}],
+            },
+        },
+    }
+
+    records = response_schema(TrackRecordsModel)().load(body)
+
+    assert records.markers[0].time == 2000
+    assert records.statistics.intervals.byTime[0].intervalFinish == 3000
+    assert records.statistics.intervals.byTime[0].statistics["altitude"].nObs == 3
+    assert records.statistics.intervals.byDistance[0].distance == 2.5

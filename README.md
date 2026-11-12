@@ -421,18 +421,33 @@ A request over the cost limit is refused with an error that gives the largest wi
 it is never truncated.
 
 How a dataset is first shown is its display config. It is replaced with YAML (or JSON) text, with keys such as
-`fill_mode` (`image`, `bands`, `composite` or `ndvi`) and `axis_range`, and refused with each thing wrong at its
+`fill_mode` (`image`, `bands`, `composite` or `normalised_difference`) and `axis_range`, and refused with each thing wrong at its
 path if it does not agree with the mapping:
 
 ```python
 ds_api.update_dataset_display(key, """
 view:
   variable: band_5
-  fill_mode: ndvi
-  ndvi: { nir: band_5, red: band_3 }
+  fill_mode: normalised_difference
+  normalised_difference: { first: band_5, second: band_3 }
 """)
-display = ds_api.find_dataset_display(key)    # display.view.fillMode == "ndvi"
+display = ds_api.find_dataset_display(key)    # display.view.fillMode == "normalised_difference"
 ```
+
+A dataset whose mapping says it is a collection of profiles (ocean casts, boreholes, soundings: each one a position
+and an instant with values down a vertical axis) is read by profile. The profiles are listed by time, and one is read
+by its index, with its levels and values:
+
+```python
+found = ds_api.find_dataset_profiles(key, bbox="115,-32,116,-31", time_from="2004-06-01T00:00:00Z")
+for p in found.profiles:
+    print(p.index, p.longitude, p.latitude, p.time_datetime())
+profile = ds_api.find_dataset_profile(key, found.profiles[0].index, variables=["temp"])
+print(profile.levels.values, profile.variables[0].values)   # None where a value is missing
+```
+
+Profiles made one after another form a line, a transect. `find_dataset_transects` finds the lines, and
+`find_dataset_transect_section` reads the values down each profile along one, for a section by distance and depth.
 
 A mapping is replaced the same way with `update_dataset_mapping(key, yaml_text)`, name, comment, tags, copyright
 and licence with `update_dataset_properties`, and the files of a dataset's set are listed with
